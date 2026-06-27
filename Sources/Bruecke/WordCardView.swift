@@ -180,12 +180,17 @@ struct WordCardView: View {
 
     private var footer: some View {
         HStack(spacing: 12) {
+            // Belirgin, opak birincil düğme (cam stili her iki modda da silik kalıyordu).
             Button { coach.start(target: entry.lemma) } label: {
                 Label("Telaffuzu dene", systemImage: "mic")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 16).padding(.vertical, 9)
+                    .background(cBlue, in: Capsule())
+                    .contentShape(Capsule())
             }
-            .modifier(GlassProminentBtn())
-            .controlSize(.large)
-            .tint(.blue)
+            .buttonStyle(.plain)
+            .help("Telaffuzunu söyleyip puan al")
 
             Spacer(minLength: 0)
 

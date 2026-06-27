@@ -1,31 +1,30 @@
-# Brücke 🌉
+# Brücke
 
-> Almanca → Türkçe, native bir macOS menü-çubuğu sözlüğü.
-> *A native macOS menu-bar dictionary that translates German into Turkish.*
+Almanca öğreniyorum. Takıldığım kelimeler için düzgün bir sözlük lazımdı. Hazır olanları denedim, hiçbiri tam aradığım şey değildi. Sonunda oturup kendiminkini yazdım.
 
-**Brücke** ("köprü") iki dili birbirine bağlar: herhangi bir uygulamada bir Almanca
-kelime seç, **⌘⇧D**'ye bas — anlamı, cinsiyeti (der/die/das), çoğulu, fiil çekimi,
-örnek cümleleri ve telaffuzuyla şık bir kart açılır. Telaffuzunu mikrofona söyleyip
-puan da alabilirsin.
+Eskiden şöyleydi: kelimeye takılıyorum, tarayıcıda bir sözlük sitesi açıyorum, doğru sekmeyi buluyorum, bir de reklamın geçmesini bekliyorum. Bir süre sonra bıktım bundan. Brücke menü çubuğunda duruyor. Hangi uygulamada olursan ol, Almanca bir kelimeyi seçip `⌘⇧D` yapıyorsun, anlamı önüne geliyor.
 
-macOS 26'nın gerçek **Liquid Glass** malzemesi, Apple sistem yazı tipleri ve TTS
-sesleriyle yazılmıştır — taklit değil, native.
+Türkçe konuşup Almanca öğrendiğim için bu ikiliye göre yaptım. İngilizce üzerinden dolaşmana gerek yok.
 
----
+## Kelimeyi seçince ne geliyor
 
-## Özellikler
+Kartta göreceklerin:
 
-- 🔎 **Seçili kelimeyi anında çevir** — global kısayol **⌘⇧D** veya sağ tık → "Brücke'de çevir"
-- 🇩🇪 **Dilbilgisi kartı** — artikel (renk kodlu der/die/das), tür, çoğul, fiil çekimi (mastar → Präteritum → Perfekt)
-- 🔊 **Seslendirme** — kelime ve örnek cümleler için Apple TTS (yavaş / hece-hece seçenekleri)
-- 🎤 **Telaffuz pratiği** — söyle, Siri tarzı dalga + benzerlik puanı al
-- ⭐ **Kaydet & tekrar et** — favori kelimeler ayrı pencerede
-- 🌐 **Çeviri motoru seçilebilir** — Google (varsayılan) veya açık kaynak LibreTranslate
-- 🪶 Menü çubuğunda yaşar (Dock'ta yer kaplamaz), girişte otomatik başlar
+- **Türkçe anlamı.** En üstte, iri puntoyla.
+- **Artikel.** der / die / das. Renkli gösteriyorum, çünkü bunları sürekli karıştırıyorum; renk olunca bir bakışta ayırıyorum.
+- **Tür ve çoğul.** İsim mi fiil mi, çoğulu ne.
+- **Fiil çekimi.** Mastar, Präteritum, Perfekt. "gehen, ging, gegangen" gibi.
+- **İngilizcesi.** Türkçe karşılık bazen tam tutmuyor, o zaman İngilizcesi kurtarıyor.
+- **Diğer anlamlar** ve **Almanca eş anlamlılar.**
+- **İki örnek cümle**, Türkçe çevirisiyle. Kelimeyi havada görmek bana yetmiyor, cümlenin içinde nasıl durduğunu da görmek istiyorum.
+
+Kelimeyi ve örnek cümleleri sesli dinleyebilirsin; Apple'ın Almanca sesleri, istersen yavaşlatıp hece hece. Mikrofona söyleyip telaffuzunu puanlatabilirsin. Beğendiğin kelimeleri yıldızlayıp ayrı bir pencerede sonradan tekrar edebilirsin.
+
+Görünüm tamamen native: macOS 26 Liquid Glass kartları, sistemin kendi yazı tipleri. Sonradan yapıştırılmış bir uygulama gibi durmuyor.
 
 ## Kurulum
 
-Xcode gerekmez — yalnızca Command Line Tools yeterli.
+Xcode gerekmiyor, Command Line Tools yetiyor (`xcode-select --install`).
 
 ```bash
 git clone https://github.com/TheWinderst/Bruecke.git
@@ -33,47 +32,23 @@ cd Bruecke
 bash build.sh
 ```
 
-`build.sh` uygulamayı derler, `Bruecke.app` paketini oluşturur ve `/Applications`'a
-kurar. İlk çalıştırmada macOS, seçili metni okuyabilmesi için **Erişilebilirlik** izni
-ister: *Sistem Ayarları → Gizlilik ve Güvenlik → Erişilebilirlik* → Brücke'yi aç.
+İlk açılışta Erişilebilirlik (Accessibility) izni isteyecek. Seçtiğin metni okuyabilmesi için lazım; bu izin olmadan `⌘⇧D` çalışmaz. Sistem Ayarları > Gizlilik ve Güvenlik > Erişilebilirlik altından Brücke'ye izni ver, bir kere vermen yeterli.
 
-## Kaynaklar ve atıf
+## Veri nereden geliyor
 
-Brücke kendi başına bir sözlük verisi **barındırmaz**; her şeyi senin bilgisayarında,
-canlı olarak şu açık kaynaklardan çeker:
+İçinde gömülü bir sözlük yok. Her şeyi senin bilgisayarında, o an canlı çekiyor:
 
-| Kaynak | Ne sağlar | Lisans |
-|---|---|---|
-| [de.wiktionary.org](https://de.wiktionary.org) | tür, cinsiyet, çoğul, fiil biçimleri, örnekler | CC BY-SA |
-| [Tatoeba](https://tatoeba.org) | örnek cümleler | CC BY 2.0 FR |
-| [OpenThesaurus](https://www.openthesaurus.de) | Almanca eş anlamlılar | CC BY-SA 4.0 / LGPL |
-| Google Translate | çeviri (resmî değil — aşağıdaki nota bak) | — |
+- [de.wiktionary.org](https://de.wiktionary.org): artikel, çekim, çoğul, anlamlar. İskeletin çoğu burası. (CC BY-SA)
+- [Tatoeba](https://tatoeba.org): örnek cümleler, gerçek insanların yazıp çevirdiği. (CC BY)
+- [OpenThesaurus](https://www.openthesaurus.de): Almanca eş anlamlılar. (CC BY-SA)
+- Çeviri için varsayılan, Google'ın anahtarsız halka açık ucu. Bu resmi bir Google servisi değil, her an değişebilir. İstersen Ayarlar'dan açık kaynak [LibreTranslate](https://libretranslate.com)'e geçebilirsin.
 
-Bu kaynaklara teşekkürler. İçerikleri kendi lisansları altındadır; bu depo yalnızca
-**kodu** MIT altında dağıtır.
-
-## Çeviri motoru hakkında not
-
-Varsayılan çeviri, Google Translate'in **anahtarsız/halka açık** ucunu kullanır. Bu
-**resmî bir API değildir**, Google ile bir bağlantımız yoktur ve her an değişebilir/
-durabilir. Yalnızca kişisel/eğitim amaçlıdır. Tamamen açık bir alternatif istersen
-*Ayarlar → Çeviri motoru → LibreTranslate*'i seçebilir, kendi sunucu adresini
-girebilirsin.
+Bu kaynakları kurup ücretsiz açık tutan herkese teşekkürler. İçeriğin telifi onlara ait; bu depo yalnızca kodu (MIT) içerir, sözlük verisini barındırmaz.
 
 ## Gizlilik
 
-- **Erişilebilirlik:** ⌘⇧D'ye bastığında seçili metni okumak için sentetik bir ⌘C
-  gönderir; panonun eski içeriğini hemen geri yükler. Hiçbir şey kaydedilmez.
-- **Ağ:** Seçtiğin kelime, çeviri/sözlük sunucularına **HTTPS** ile gider. Başka hiçbir
-  yere veri gönderilmez; uygulamanın kendi sunucusu yoktur.
-- **Mikrofon:** Yalnızca telaffuz pratiği sırasında, Apple konuşma tanıma ile kullanılır.
-- **Kayıtlı kelimeler** yalnızca yerel `UserDefaults`'ta tutulur.
+Brücke'nin kendi sunucusu yok. Aradığın kelime yalnızca yukarıdaki sözlük ve çeviri sunucularına HTTPS ile gidiyor, başka hiçbir yere bir şey gitmiyor. Hesap yok, takip yok, reklam yok.
 
 ## Lisans
 
-Kod [MIT Lisansı](LICENSE) altındadır — © 2026 **thewinderst**.
-
-## Katkı
-
-Hata bildirimi ve öneriler için Issues/PR açabilirsiniz. Geliştirme yol haritası için
-[ROADMAP.md](ROADMAP.md) dosyasına bakın.
+MIT. Dilediğin gibi kullan, değiştir, dağıt. Yapan: thewinderst.
