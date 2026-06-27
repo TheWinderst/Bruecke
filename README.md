@@ -1,54 +1,61 @@
 # Brücke
 
-Almanca öğreniyorum. Takıldığım kelimeler için düzgün bir sözlük lazımdı. Hazır olanları denedim, hiçbiri tam aradığım şey değildi. Sonunda oturup kendiminkini yazdım.
+Brücke, menü çubuğunda çalışan, Almancadan Türkçeye native bir macOS sözlüğüdür. Herhangi bir uygulamada bir Almanca kelimeyi seçip `⌘⇧D` kısayoluna basıldığında, kelimenin Türkçe karşılığını ve dil bilgisi ayrıntılarını gösteren bir kart açılır.
 
-Eskiden şöyleydi: kelimeye takılıyorum, tarayıcıda bir sözlük sitesi açıyorum, doğru sekmeyi buluyorum, bir de reklamın geçmesini bekliyorum. Bir süre sonra bıktım bundan. Brücke menü çubuğunda duruyor. Hangi uygulamada olursan ol, Almanca bir kelimeyi seçip `⌘⇧D` yapıyorsun, anlamı önüne geliyor.
+Türkçe konuşan ve Almanca öğrenen kullanıcılar için tasarlandı. Anlam doğrudan Türkçe verilir, İngilizce üzerinden geçmek gerekmez. Sözlük sayfaları arasında dolaşmak yerine, çeviriye okunan yerden ulaşılır.
 
-Türkçe konuşup Almanca öğrendiğim için bu ikiliye göre yaptım. İngilizce üzerinden dolaşmana gerek yok.
+## Özellikler
 
-## Kelimeyi seçince ne geliyor
+Bir kelime seçilip kart açıldığında şunlar görünür:
 
-Kartta göreceklerin:
-
-- **Türkçe anlamı.** En üstte, iri puntoyla.
-- **Artikel.** der / die / das. Renkli gösteriyorum, çünkü bunları sürekli karıştırıyorum; renk olunca bir bakışta ayırıyorum.
-- **Tür ve çoğul.** İsim mi fiil mi, çoğulu ne.
-- **Fiil çekimi.** Mastar, Präteritum, Perfekt. "gehen, ging, gegangen" gibi.
-- **İngilizcesi.** Türkçe karşılık bazen tam tutmuyor, o zaman İngilizcesi kurtarıyor.
+- **Türkçe anlam.** Kartın en üstünde, vurgulu biçimde.
+- **Artikel.** der, die, das. Renk kodludur; üç artikel bir bakışta ayırt edilir.
+- **Tür ve çoğul.** Kelimenin türü (isim, fiil vb.) ve isimlerde çoğul biçim.
+- **Fiil çekimi.** Mastar, Präteritum ve Perfekt biçimleri (örneğin gehen, ging, gegangen).
+- **İngilizce karşılık.** Türkçe karşılığın yetersiz kaldığı durumlarda ikinci bir referans.
 - **Diğer anlamlar** ve **Almanca eş anlamlılar.**
-- **İki örnek cümle**, Türkçe çevirisiyle. Kelimeyi havada görmek bana yetmiyor, cümlenin içinde nasıl durduğunu da görmek istiyorum.
+- **İki örnek cümle**, Türkçe çevirisiyle birlikte.
 
-Kelimeyi ve örnek cümleleri sesli dinleyebilirsin; Apple'ın Almanca sesleri, istersen yavaşlatıp hece hece. Mikrofona söyleyip telaffuzunu puanlatabilirsin. Beğendiğin kelimeleri yıldızlayıp ayrı bir pencerede sonradan tekrar edebilirsin.
+Kelime ve örnek cümleler Apple'ın Almanca seslendirmesiyle dinlenebilir; normal hız, yavaş veya hece hece seçenekleri vardır. Mikrofona söylenen telaffuz için puan alınabilir. Kaydedilen kelimeler ayrı bir pencerede toplanır ve sonradan tekrar edilebilir.
 
-Görünüm tamamen native: macOS 26 Liquid Glass kartları, sistemin kendi yazı tipleri. Sonradan yapıştırılmış bir uygulama gibi durmuyor.
+Sağ tık menüsünde "Brücke'de çevir" servisi de bulunur.
+
+Arayüz native bileşenlerle kuruludur: macOS 26 Liquid Glass yüzeyleri ve sistemin kendi yazı tipleri kullanılır.
 
 ## Kurulum
 
-Xcode gerekmiyor, Command Line Tools yetiyor (`xcode-select --install`).
+Xcode gerekmez; Command Line Tools yeterlidir.
 
 ```bash
+xcode-select --install
 git clone https://github.com/TheWinderst/Bruecke.git
 cd Bruecke
 bash build.sh
 ```
 
-İlk açılışta Erişilebilirlik (Accessibility) izni isteyecek. Seçtiğin metni okuyabilmesi için lazım; bu izin olmadan `⌘⇧D` çalışmaz. Sistem Ayarları > Gizlilik ve Güvenlik > Erişilebilirlik altından Brücke'ye izni ver, bir kere vermen yeterli.
+Betik uygulamayı release modunda derler ve `/Applications` altına kurar. macOS 14 ve üzeri desteklenir.
 
-## Veri nereden geliyor
+İlk açılışta Erişilebilirlik (Accessibility) izni istenir. Bu izin, seçili metnin okunabilmesi için gereklidir; izin verilmeden `⌘⇧D` çalışmaz. İzni Sistem Ayarları > Gizlilik ve Güvenlik > Erişilebilirlik altından bir kez vermek yeterlidir.
 
-İçinde gömülü bir sözlük yok. Her şeyi senin bilgisayarında, o an canlı çekiyor:
+Çeviri motoru Ayarlar bölümünden seçilebilir.
 
-- [de.wiktionary.org](https://de.wiktionary.org): artikel, çekim, çoğul, anlamlar. İskeletin çoğu burası. (CC BY-SA)
-- [Tatoeba](https://tatoeba.org): örnek cümleler, gerçek insanların yazıp çevirdiği. (CC BY)
+## Veri kaynakları ve atıf
+
+Uygulamada gömülü sözlük verisi yoktur. Bütün içerik, arama anında ilgili sunuculardan canlı olarak çekilir.
+
+- [de.wiktionary.org](https://de.wiktionary.org): artikel, çekim, çoğul ve anlamlar. (CC BY-SA)
+- [Tatoeba](https://tatoeba.org): kullanıcıların yazıp çevirdiği örnek cümleler. (CC BY)
 - [OpenThesaurus](https://www.openthesaurus.de): Almanca eş anlamlılar. (CC BY-SA)
-- Çeviri için varsayılan, Google'ın anahtarsız halka açık ucu. Bu resmi bir Google servisi değil, her an değişebilir. İstersen Ayarlar'dan açık kaynak [LibreTranslate](https://libretranslate.com)'e geçebilirsin.
+- Çeviri için varsayılan kaynak, Google'ın anahtar gerektirmeyen halka açık ucudur. Bu resmi bir Google servisi değildir ve önceden haber verilmeden değişebilir. Ayarlar bölümünden açık kaynak [LibreTranslate](https://libretranslate.com) seçeneğine geçilebilir.
 
-Bu kaynakları kurup ücretsiz açık tutan herkese teşekkürler. İçeriğin telifi onlara ait; bu depo yalnızca kodu (MIT) içerir, sözlük verisini barındırmaz.
+İçeriğin telif hakkı ilgili kaynaklara aittir. Bu depo yalnızca uygulama kodunu içerir, sözlük verisini barındırmaz.
 
 ## Gizlilik
 
-Brücke'nin kendi sunucusu yok. Aradığın kelime yalnızca yukarıdaki sözlük ve çeviri sunucularına HTTPS ile gidiyor, başka hiçbir yere bir şey gitmiyor. Hesap yok, takip yok, reklam yok.
+Brücke'nin kendi sunucusu yoktur. Aranan kelime yalnızca yukarıda listelenen sözlük ve çeviri sunucularına HTTPS üzerinden gönderilir, başka hiçbir yere veri iletilmez. Hesap, kullanıcı takibi ve reklam yoktur.
 
 ## Lisans
 
-MIT. Dilediğin gibi kullan, değiştir, dağıt. Yapan: thewinderst.
+MIT lisansı altında dağıtılır. Kodu serbestçe kullanabilir, değiştirebilir ve dağıtabilirsiniz.
+
+Geliştiren: thewinderst
