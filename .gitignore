@@ -1,0 +1,18 @@
+# Swift Package Manager
+.build/
+Packages/
+*.xcodeproj
+xcuserdata/
+.swiftpm/
+Package.resolved
+
+# Build artifacts
+*.app
+DerivedData/
+
+# macOS
+.DS_Store
+*.swp
+
+# Local logs / temp
+*.log
