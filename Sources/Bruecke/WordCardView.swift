@@ -82,9 +82,8 @@ struct WordCardView: View {
                     .padding(.horizontal, 9).padding(.vertical, 3)
                     .background(tag.color.opacity(0.18), in: RoundedRectangle(cornerRadius: 6))
             }
-            Text(entry.lemma)
-                .font(.system(size: entry.kind == .phrase ? 18 : 29, weight: .semibold))
-                .foregroundStyle(.primary)
+            headwordText
+                .font(.system(size: headwordSize, weight: .semibold))
                 .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 8)
             speakerButton
@@ -156,36 +155,43 @@ struct WordCardView: View {
         .background(.quaternary, in: RoundedRectangle(cornerRadius: 10))
     }
 
-    // Edat kalıbı kutusu: edat + yönettiği hâl ("ek") + hatırlatma ipucu.
+    // Edat kalıbı kutusu: solda belirgin dolu hâl rozeti (+A / +D), yanında
+    // "edat + hâl" ve Türkçe karşılığı, altında ince ayraçla ipucu.
     // Akkusativ mavi, Dativ pembe ile renklenir.
     private func patternBox(_ p: VerbPattern) -> some View {
         let c = p.kasus == .akkusativ ? cBlue : cPink
-        return VStack(alignment: .leading, spacing: 9) {
-            HStack(spacing: 8) {
-                Text(p.preposition)
-                    .font(.system(size: 16, weight: .semibold)).foregroundStyle(c)
-                    .padding(.horizontal, 11).padding(.vertical, 5)
-                    .background(c.opacity(0.16), in: Capsule())
-                Image(systemName: "plus").font(.system(size: 9, weight: .bold)).foregroundStyle(.tertiary)
-                Text(p.kasus.name)
-                    .font(.system(size: 14, weight: .semibold)).foregroundStyle(.primary)
+        return VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 12) {
                 Text(p.kasus.short)
-                    .font(.system(size: 11, weight: .bold)).foregroundStyle(.white)
-                    .padding(.horizontal, 7).padding(.vertical, 2)
-                    .background(c, in: Capsule())
+                    .font(.system(size: 17, weight: .bold)).foregroundStyle(.white)
+                    .frame(width: 42, height: 42)
+                    .background(c, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+
+                VStack(alignment: .leading, spacing: 3) {
+                    (Text(p.preposition).foregroundStyle(c).fontWeight(.semibold)
+                        + Text("  +  ").foregroundStyle(.tertiary)
+                        + Text(p.kasus.name).foregroundStyle(.primary).fontWeight(.medium))
+                        .font(.system(size: 16))
+                    Text("Türkçede ≈ \(p.kasus.trHint)")
+                        .font(.system(size: 11.5)).foregroundStyle(.secondary)
+                }
                 Spacer(minLength: 0)
-                Text(p.kasus.trHint).font(.system(size: 11)).foregroundStyle(.secondary)
             }
-            HStack(alignment: .top, spacing: 6) {
-                Image(systemName: "lightbulb.fill").font(.system(size: 11)).foregroundStyle(c.opacity(0.9))
-                Text(p.tip).font(.system(size: 12)).foregroundStyle(.secondary)
+
+            Rectangle().fill(c.opacity(0.16)).frame(height: 1).padding(.vertical, 11)
+
+            HStack(alignment: .top, spacing: 7) {
+                Image(systemName: "lightbulb.fill")
+                    .font(.system(size: 11)).foregroundStyle(c).padding(.top, 1)
+                Text(p.tip).font(.system(size: 12.5)).foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
-        .padding(12)
+        .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(c.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
-        .overlay(RoundedRectangle(cornerRadius: 10).stroke(c.opacity(0.25), lineWidth: 1))
+        .background(c.opacity(0.07), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(c.opacity(0.22), lineWidth: 0.8))
     }
 
     private func detailLine(_ label: String, _ value: String) -> some View {
@@ -250,6 +256,22 @@ struct WordCardView: View {
         pb.setString(entry.translation, forType: .string)
         copied = true
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.4) { copied = false }
+    }
+
+    private var headwordSize: CGFloat {
+        if entry.pattern != nil { return 22 }
+        return entry.kind == .phrase ? 18 : 29
+    }
+
+    // Edat kalıbında, başlığın sonundaki edatı kendi (hâl) renginde vurgular:
+    // "sich beschweren über" → "über" mavi (Akkusativ) ya da pembe (Dativ).
+    private var headwordText: Text {
+        guard let p = entry.pattern, entry.lemma.hasSuffix(" \(p.preposition)") else {
+            return Text(entry.lemma).foregroundStyle(.primary)
+        }
+        let c = p.kasus == .akkusativ ? cBlue : cPink
+        let stem = String(entry.lemma.dropLast(p.preposition.count))
+        return Text(stem).foregroundStyle(.primary) + Text(p.preposition).foregroundStyle(c).fontWeight(.bold)
     }
 
     private var tag: (text: String, color: Color)? {

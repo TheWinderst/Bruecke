@@ -2,17 +2,16 @@ import Foundation
 
 // Almanca edat kalıpları (Verben mit Präpositionen) bilgi tabanı.
 //
-// Amaç: kullanıcı "sich beschweren über", "beschweren über" ya da yalnızca
-// "beschweren" seçtiğinde Brücke bunu bir kalıp olarak tanısın; edatı, edatın
-// yönettiği hâli ("ek"), Türkçe/İngilizce anlamı, bir örnek cümle ve hâli
-// hatırlatan kısa bir ipucu göstersin.
+// Kullanıcı "sich beschweren über", "beschweren über" ya da yalnızca
+// "beschweren" seçtiğinde Brücke bunu tanır; edatı, edatın yönettiği hâli
+// ("ek"), Türkçe/İngilizce anlamı, bir örnek cümle ve hâli hatırlatan kısa
+// bir ipucu gösterir.
 //
 // Hâl kuralının kısa hatırlatıcısı (ipuçlarında kullanılır):
-//  • mit · bei · zu · von · nach · aus · vor  → her zaman DATİV
-//  • für · um · gegen · durch · ohne          → her zaman AKKUSATİV
-//  • an · auf · in · über  (iki yönlü)        → kalıpta mecazi "yönelme/konu" → AKKUSATİV
-//    (yer/durum bildirseydi Dativ olurdu: teilnehmen an +D, arbeiten an +D gibi
-//     istisnalar fiile bağlıdır, ezber gerektirir.)
+//  • mit · bei · zu · von · nach · aus  → her zaman DATİV
+//  • für · um · gegen                    → her zaman AKKUSATİV
+//  • an · auf · in · über · vor (iki yönlü) → fiile bağlı; çoğu mecazi
+//    "yönelme/konu" kalıbında AKKUSATİV, yer/durum/korku kalıplarında DATİV.
 
 struct PatternRecord {
     let verb: String        // "sich beschweren" ya da "warten"
@@ -31,13 +30,10 @@ enum PatternDictionary {
     // temizliği, sondaki "+a / +d / (akkusativ)" gibi hâl işaretlerini atar.
     static func normalize(_ s: String) -> String {
         var t = s.lowercased()
-        // hâl işaretlerini ve parantezleri kaldır
         for token in ["(+a)", "(+d)", "+akk", "+dat", "+a", "+d", "(akkusativ)", "(dativ)", "akk.", "dat."] {
             t = t.replacingOccurrences(of: token, with: " ")
         }
-        // noktalama → boşluk
         t = String(t.map { ($0.isLetter || $0 == " ") ? $0 : " " })
-        // çoklu boşlukları teke indir
         let parts = t.split(separator: " ").map(String.init)
         return parts.joined(separator: " ").trimmingCharacters(in: .whitespaces)
     }
@@ -48,12 +44,10 @@ enum PatternDictionary {
 
         if let rec = map[key] { return entry(from: rec) }
 
-        // "sich" başta ise atıp tekrar dene
         if key.hasPrefix("sich ") {
             let noSich = String(key.dropFirst(5))
             if let rec = map[noSich] { return entry(from: rec) }
         }
-        // sondaki edatı atıp çekirdek fiille dene (ör. "warten auf" → "warten")
         let words = key.split(separator: " ").map(String.init)
         if words.count >= 2 {
             let dropLast = words.dropLast().joined(separator: " ")
@@ -74,41 +68,55 @@ enum PatternDictionary {
         )
     }
 
-    // Her kayıt için olası seçim biçimlerini anahtar yapar:
-    // tam fiil, çekirdek fiil (sich'siz), fiil+edat, çekirdek+edat.
+    // Eşleştirme anahtarları: fiil+edat ve çekirdek+edat biçimleri her zaman
+    // (kesin), yalın fiil biçimleri ise yalnızca boşsa (ilk gelen kazanır) —
+    // böylece bir fiilin birden çok edatı varsa yalın seçim ilk/yaygın olana gider.
     private static let map: [String: PatternRecord] = {
         var m: [String: PatternRecord] = [:]
         for r in records {
-            let core = r.verb.replacingOccurrences(of: "sich ", with: "")
-            for form in [r.verb, core, "\(r.verb) \(r.prep)", "\(core) \(r.prep)"] {
-                m[form.lowercased()] = r
+            let core = r.verb.replacingOccurrences(of: "sich ", with: "").lowercased()
+            let full = r.verb.lowercased()
+            for form in ["\(full) \(r.prep.lowercased())", "\(core) \(r.prep.lowercased())"] {
+                m[form] = r
+            }
+            for form in [full, core] {
+                if m[form] == nil { m[form] = r }
             }
         }
         return m
     }()
 
-    // MARK: - Kalıplar (yaygın A1–B2 seti)
+    // MARK: - Kalıplar (kapsamlı A1–C1 seti)
 
     static let records: [PatternRecord] = [
-        // an + Akkusativ (yönelme/konu)
+
+        // ───────── an + Akkusativ (yönelme / konu) ─────────
         PatternRecord(verb: "denken", prep: "an", kasus: .akkusativ,
             tr: "düşünmek (birini/bir şeyi)", en: "think of/about",
             exDE: "Ich denke oft an dich.", exTR: "Seni sık sık düşünüyorum.",
-            tip: "an burada 'yönelme' anlatır → Akkusativ. Aklında tut: an dich, an ihn."),
+            tip: "Burada an yönelme bildirir → Akkusativ. (arbeiten an ise Dativ alır, dikkat.)"),
         PatternRecord(verb: "sich erinnern", prep: "an", kasus: .akkusativ,
             tr: "hatırlamak", en: "remember",
             exDE: "Erinnerst du dich an den Sommer?", exTR: "O yazı hatırlıyor musun?",
-            tip: "an + Akkusativ. Hatıra sana doğru 'gelir' → yönelme → -i hâli mantığı."),
+            tip: "sich erinnern an + Akkusativ."),
         PatternRecord(verb: "sich gewöhnen", prep: "an", kasus: .akkusativ,
             tr: "alışmak", en: "get used to",
             exDE: "Ich gewöhne mich an das Wetter.", exTR: "Havaya alışıyorum.",
-            tip: "an + Akkusativ. Bir şeye doğru 'alışma' → yönelme."),
+            tip: "Bir şeye doğru alışma → an + Akkusativ."),
         PatternRecord(verb: "glauben", prep: "an", kasus: .akkusativ,
             tr: "inanmak", en: "believe in",
             exDE: "Sie glaubt an sich selbst.", exTR: "Kendine inanıyor.",
-            tip: "glauben an hep Akkusativ. (Dikkat: 'arbeiten an' ise Dativ ister.)"),
+            tip: "glauben an hep Akkusativ."),
+        PatternRecord(verb: "sich wenden", prep: "an", kasus: .akkusativ,
+            tr: "başvurmak, -e yönelmek", en: "turn to / address",
+            exDE: "Wenden Sie sich an die Rezeption.", exTR: "Resepsiyona başvurun.",
+            tip: "Birine yönelme → an + Akkusativ."),
+        PatternRecord(verb: "schreiben", prep: "an", kasus: .akkusativ,
+            tr: "yazmak (birine)", en: "write to",
+            exDE: "Ich schreibe an meinen Freund.", exTR: "Arkadaşıma yazıyorum.",
+            tip: "Birine doğru yazma → an + Akkusativ. (Konu için: schreiben über + Akkusativ.)"),
 
-        // an + Dativ (katılım/üzerinde olma) — istisna grubu
+        // ───────── an + Dativ (katılım / üzerinde olma / eksiklik) ─────────
         PatternRecord(verb: "teilnehmen", prep: "an", kasus: .dativ,
             tr: "katılmak", en: "take part in",
             exDE: "Wir nehmen an dem Kurs teil.", exTR: "Kursa katılıyoruz.",
@@ -116,41 +124,57 @@ enum PatternDictionary {
         PatternRecord(verb: "arbeiten", prep: "an", kasus: .dativ,
             tr: "üzerinde çalışmak", en: "work on",
             exDE: "Er arbeitet an einem Roman.", exTR: "Bir roman üzerinde çalışıyor.",
-            tip: "arbeiten an + Dativ. 'Bir şeyin üstünde durmak' → yer gibi → Dativ."),
+            tip: "Bir şeyin üstünde durmak → yer gibi → an + Dativ."),
         PatternRecord(verb: "leiden", prep: "an", kasus: .dativ,
             tr: "(hastalık) çekmek", en: "suffer from (illness)",
-            exDE: "Sie leidet an einer Allergie.", exTR: "Bir alerjisi var (ondan muzdarip).",
-            tip: "Hastalık için: leiden an + Dativ. (Durum/koşul için: leiden unter + Dativ.)"),
+            exDE: "Sie leidet an einer Allergie.", exTR: "Bir alerjisi var.",
+            tip: "Hastalık: leiden an + Dativ. (Durum/koşul: leiden unter + Dativ.)"),
+        PatternRecord(verb: "zweifeln", prep: "an", kasus: .dativ,
+            tr: "şüphe etmek", en: "doubt",
+            exDE: "Ich zweifle an seiner Ehrlichkeit.", exTR: "Dürüstlüğünden şüphe ediyorum.",
+            tip: "zweifeln an + Dativ."),
+        PatternRecord(verb: "sich beteiligen", prep: "an", kasus: .dativ,
+            tr: "katılmak, dahil olmak", en: "participate in",
+            exDE: "Viele beteiligen sich an der Diskussion.", exTR: "Birçok kişi tartışmaya katılıyor.",
+            tip: "Katılım → an + Dativ (teilnehmen gibi)."),
+        PatternRecord(verb: "sterben", prep: "an", kasus: .dativ,
+            tr: "(bir şeyden) ölmek", en: "die of",
+            exDE: "Er starb an einer Krankheit.", exTR: "Bir hastalıktan öldü.",
+            tip: "Ölüm sebebi → an + Dativ."),
 
-        // auf + Akkusativ
+        // ───────── auf + Akkusativ ─────────
         PatternRecord(verb: "warten", prep: "auf", kasus: .akkusativ,
             tr: "beklemek", en: "wait for",
             exDE: "Ich warte auf den Bus.", exTR: "Otobüsü bekliyorum.",
-            tip: "warten auf + Akkusativ. 'Worauf wartest du?' → auf hep -i hâli alır."),
+            tip: "warten auf + Akkusativ. 'Worauf?' → auf hep -i hâli."),
         PatternRecord(verb: "sich freuen", prep: "auf", kasus: .akkusativ,
             tr: "(gelecek bir şeyi) iple çekmek", en: "look forward to",
             exDE: "Ich freue mich auf das Wochenende.", exTR: "Hafta sonunu iple çekiyorum.",
-            tip: "GELECEK için auf + Akkusativ. (Olmuş/şu anki şey için über + Akkusativ.)"),
+            tip: "GELECEK için auf + Akkusativ. (Olmuş şey için über + Akkusativ.)"),
         PatternRecord(verb: "sich konzentrieren", prep: "auf", kasus: .akkusativ,
             tr: "odaklanmak", en: "concentrate on",
             exDE: "Konzentrier dich auf die Arbeit!", exTR: "İşe odaklan!",
-            tip: "auf + Akkusativ. Dikkatini bir şeye 'doğru' yöneltirsin → yönelme."),
+            tip: "Dikkati bir şeye yöneltme → auf + Akkusativ."),
         PatternRecord(verb: "achten", prep: "auf", kasus: .akkusativ,
             tr: "dikkat etmek", en: "pay attention to",
             exDE: "Achte auf die Verben!", exTR: "Fiillere dikkat et!",
-            tip: "achten auf + Akkusativ. aufpassen auf da aynı: ikisi de -i hâli."),
+            tip: "achten auf + Akkusativ. aufpassen auf da aynı."),
+        PatternRecord(verb: "aufpassen", prep: "auf", kasus: .akkusativ,
+            tr: "göz kulak olmak", en: "look after / watch",
+            exDE: "Pass auf die Kinder auf!", exTR: "Çocuklara göz kulak ol!",
+            tip: "aufpassen auf + Akkusativ."),
         PatternRecord(verb: "hoffen", prep: "auf", kasus: .akkusativ,
             tr: "ummak", en: "hope for",
             exDE: "Wir hoffen auf gutes Wetter.", exTR: "İyi hava umuyoruz.",
-            tip: "hoffen auf + Akkusativ. auf bu kalıpta her zaman -i hâli."),
+            tip: "hoffen auf + Akkusativ."),
         PatternRecord(verb: "sich vorbereiten", prep: "auf", kasus: .akkusativ,
             tr: "hazırlanmak", en: "prepare for",
             exDE: "Sie bereitet sich auf die Prüfung vor.", exTR: "Sınava hazırlanıyor.",
-            tip: "auf + Akkusativ. Bir hedefe 'doğru' hazırlık → yönelme."),
+            tip: "Bir hedefe doğru hazırlık → auf + Akkusativ."),
         PatternRecord(verb: "verzichten", prep: "auf", kasus: .akkusativ,
-            tr: "vazgeçmek", en: "do without / give up",
+            tr: "vazgeçmek", en: "do without",
             exDE: "Ich verzichte auf Zucker.", exTR: "Şekerden vazgeçiyorum.",
-            tip: "verzichten auf + Akkusativ. Anlam '-den vazgeçmek' olsa da Almanca auf + -i hâli ister."),
+            tip: "Anlam '-den vazgeçmek' olsa da Almanca auf + Akkusativ ister."),
         PatternRecord(verb: "antworten", prep: "auf", kasus: .akkusativ,
             tr: "cevap vermek (bir şeye)", en: "answer (something)",
             exDE: "Er antwortet auf die Frage.", exTR: "Soruyu cevaplıyor.",
@@ -158,9 +182,43 @@ enum PatternDictionary {
         PatternRecord(verb: "reagieren", prep: "auf", kasus: .akkusativ,
             tr: "tepki vermek", en: "react to",
             exDE: "Wie reagierst du auf Kritik?", exTR: "Eleştiriye nasıl tepki veriyorsun?",
-            tip: "reagieren auf + Akkusativ. auf bu kalıpta -i hâli."),
+            tip: "reagieren auf + Akkusativ."),
+        PatternRecord(verb: "sich verlassen", prep: "auf", kasus: .akkusativ,
+            tr: "güvenmek (-e bel bağlamak)", en: "rely on",
+            exDE: "Ich verlasse mich auf dich.", exTR: "Sana güveniyorum.",
+            tip: "sich verlassen auf + Akkusativ."),
+        PatternRecord(verb: "sich beziehen", prep: "auf", kasus: .akkusativ,
+            tr: "atıfta bulunmak, -e ilişkin olmak", en: "refer to",
+            exDE: "Ich beziehe mich auf Ihre E-Mail.", exTR: "E-postanıza atıfta bulunuyorum.",
+            tip: "sich beziehen auf + Akkusativ."),
+        PatternRecord(verb: "hinweisen", prep: "auf", kasus: .akkusativ,
+            tr: "dikkat çekmek, işaret etmek", en: "point out",
+            exDE: "Er weist auf das Problem hin.", exTR: "Soruna dikkat çekiyor.",
+            tip: "hinweisen auf + Akkusativ."),
+        PatternRecord(verb: "stolz sein", prep: "auf", kasus: .akkusativ,
+            tr: "gurur duymak", en: "be proud of",
+            exDE: "Sie ist stolz auf ihren Sohn.", exTR: "Oğluyla gurur duyuyor.",
+            tip: "stolz auf + Akkusativ."),
+        PatternRecord(verb: "Lust haben", prep: "auf", kasus: .akkusativ,
+            tr: "canı istemek", en: "feel like (having)",
+            exDE: "Ich habe Lust auf einen Kaffee.", exTR: "Canım kahve istiyor.",
+            tip: "Lust auf + Akkusativ."),
 
-        // über + Akkusativ (konu)
+        // ───────── auf + Dativ (dayanma / ısrar) ─────────
+        PatternRecord(verb: "bestehen", prep: "auf", kasus: .dativ,
+            tr: "ısrar etmek", en: "insist on",
+            exDE: "Sie besteht auf ihrem Recht.", exTR: "Hakkında ısrar ediyor.",
+            tip: "ısrar: bestehen auf + Dativ. (Oluşma: bestehen aus + Dativ.)"),
+        PatternRecord(verb: "beruhen", prep: "auf", kasus: .dativ,
+            tr: "dayanmak, -e bağlı olmak", en: "be based on",
+            exDE: "Das beruht auf einem Irrtum.", exTR: "Bu bir yanlışlığa dayanıyor.",
+            tip: "beruhen auf + Dativ."),
+        PatternRecord(verb: "basieren", prep: "auf", kasus: .dativ,
+            tr: "temellenmek", en: "be based on",
+            exDE: "Der Film basiert auf einem Buch.", exTR: "Film bir kitaba dayanıyor.",
+            tip: "basieren auf + Dativ."),
+
+        // ───────── über + Akkusativ (konu) ─────────
         PatternRecord(verb: "sich beschweren", prep: "über", kasus: .akkusativ,
             tr: "şikayet etmek", en: "complain about",
             exDE: "Er beschwert sich über den Lärm.", exTR: "Gürültüden şikayet ediyor.",
@@ -168,77 +226,165 @@ enum PatternDictionary {
         PatternRecord(verb: "sich ärgern", prep: "über", kasus: .akkusativ,
             tr: "kızmak, sinirlenmek", en: "be annoyed about",
             exDE: "Ich ärgere mich über den Fehler.", exTR: "Bu hataya sinirleniyorum.",
-            tip: "über + Akkusativ. Kızdığın 'konu' → -i hâli."),
+            tip: "Kızdığın konu → über + Akkusativ."),
         PatternRecord(verb: "sich freuen", prep: "über", kasus: .akkusativ,
             tr: "(olmuş bir şeye) sevinmek", en: "be happy about",
             exDE: "Sie freut sich über das Geschenk.", exTR: "Hediyeye sevindi.",
-            tip: "OLMUŞ/eldeki şey için über + Akkusativ. (Gelecek için auf + Akkusativ.)"),
+            tip: "OLMUŞ şey için über + Akkusativ. (Gelecek için auf + Akkusativ.)"),
         PatternRecord(verb: "sprechen", prep: "über", kasus: .akkusativ,
             tr: "konuşmak (hakkında)", en: "talk about",
             exDE: "Wir sprechen über Politik.", exTR: "Siyaset hakkında konuşuyoruz.",
-            tip: "Konu = über + Akkusativ. (Kişiyle konuşmak: sprechen mit + Dativ.)"),
+            tip: "Konu → über + Akkusativ. (Kişiyle: sprechen mit + Dativ.)"),
+        PatternRecord(verb: "reden", prep: "über", kasus: .akkusativ,
+            tr: "konuşmak (hakkında)", en: "talk about",
+            exDE: "Sie reden über das Wetter.", exTR: "Hava hakkında konuşuyorlar.",
+            tip: "Konu → über + Akkusativ."),
         PatternRecord(verb: "nachdenken", prep: "über", kasus: .akkusativ,
-            tr: "üzerine düşünmek, kafa yormak", en: "think over / ponder",
+            tr: "üzerine düşünmek, kafa yormak", en: "think over",
             exDE: "Ich denke über dein Angebot nach.", exTR: "Teklifin üzerine düşünüyorum.",
-            tip: "über + Akkusativ. Üzerinde kafa yorduğun 'konu' → -i hâli."),
+            tip: "Üzerine kafa yorulan konu → über + Akkusativ."),
         PatternRecord(verb: "sich informieren", prep: "über", kasus: .akkusativ,
             tr: "bilgi edinmek", en: "get information about",
             exDE: "Informier dich über die Regeln.", exTR: "Kurallar hakkında bilgi al.",
-            tip: "über + Akkusativ. Bilgi aldığın 'konu' → -i hâli."),
+            tip: "Bilgi alınan konu → über + Akkusativ."),
         PatternRecord(verb: "lachen", prep: "über", kasus: .akkusativ,
             tr: "gülmek (bir şeye)", en: "laugh about",
             exDE: "Sie lachen über den Witz.", exTR: "Şakaya gülüyorlar.",
-            tip: "über + Akkusativ. Güldüğün 'konu' → -i hâli."),
+            tip: "Gülünen konu → über + Akkusativ."),
+        PatternRecord(verb: "sich aufregen", prep: "über", kasus: .akkusativ,
+            tr: "sinirlenmek, çok bozulmak", en: "get worked up about",
+            exDE: "Reg dich nicht über ihn auf!", exTR: "Ona bu kadar sinirlenme!",
+            tip: "sich aufregen über + Akkusativ."),
+        PatternRecord(verb: "sich wundern", prep: "über", kasus: .akkusativ,
+            tr: "şaşırmak", en: "be surprised about",
+            exDE: "Ich wundere mich über sein Verhalten.", exTR: "Davranışına şaşırıyorum.",
+            tip: "Şaşırılan konu → über + Akkusativ."),
+        PatternRecord(verb: "sich unterhalten", prep: "über", kasus: .akkusativ,
+            tr: "sohbet etmek (bir konu hakkında)", en: "chat about",
+            exDE: "Wir unterhalten uns über Filme.", exTR: "Filmler hakkında sohbet ediyoruz.",
+            tip: "Konu → über + Akkusativ. (Biriyle: sich unterhalten mit + Dativ.)"),
+        PatternRecord(verb: "berichten", prep: "über", kasus: .akkusativ,
+            tr: "haber vermek, aktarmak", en: "report on",
+            exDE: "Die Zeitung berichtet über den Unfall.", exTR: "Gazete kazayı aktarıyor.",
+            tip: "Konu → über + Akkusativ."),
+        PatternRecord(verb: "sich streiten", prep: "über", kasus: .akkusativ,
+            tr: "tartışmak (bir konu)", en: "argue about",
+            exDE: "Sie streiten über Geld.", exTR: "Para konusunda tartışıyorlar.",
+            tip: "Tartışılan konu → über + Akkusativ. (Biriyle: ... mit + Dativ.)"),
+        PatternRecord(verb: "verfügen", prep: "über", kasus: .akkusativ,
+            tr: "sahip olmak, tasarrufunda olmak", en: "have at one's disposal",
+            exDE: "Er verfügt über viel Erfahrung.", exTR: "Çok deneyime sahip.",
+            tip: "verfügen über + Akkusativ."),
 
-        // für + Akkusativ (für daima Akkusativ)
+        // ───────── für + Akkusativ (für daima Akkusativ) ─────────
         PatternRecord(verb: "sich interessieren", prep: "für", kasus: .akkusativ,
             tr: "ilgilenmek", en: "be interested in",
             exDE: "Ich interessiere mich für Musik.", exTR: "Müzikle ilgileniyorum.",
-            tip: "für edatı HER ZAMAN Akkusativ. Kalıbı için ek düşünmene gerek yok."),
+            tip: "für edatı HER ZAMAN Akkusativ ister."),
         PatternRecord(verb: "danken", prep: "für", kasus: .akkusativ,
             tr: "teşekkür etmek (bir şey için)", en: "thank for",
             exDE: "Danke für deine Hilfe!", exTR: "Yardımın için teşekkürler!",
-            tip: "für → Akkusativ (hep). Kişiye olan kısım Dativ'dir: danke dir für ..."),
+            tip: "für → Akkusativ (hep). Kişi kısmı Dativ: danke dir."),
         PatternRecord(verb: "sich entschuldigen", prep: "für", kasus: .akkusativ,
             tr: "özür dilemek (bir şey için)", en: "apologize for",
-            exDE: "Ich entschuldige mich für die Verspätung.", exTR: "Geç kaldığım için özür dilerim.",
-            tip: "für → Akkusativ. (Kişiden özür: sich entschuldigen bei + Dativ.)"),
+            exDE: "Ich entschuldige mich für die Verspätung.", exTR: "Geciktiğim için özür dilerim.",
+            tip: "für → Akkusativ. (Kişiden özür: ... bei + Dativ.)"),
         PatternRecord(verb: "sich bedanken", prep: "für", kasus: .akkusativ,
             tr: "teşekkür etmek", en: "give thanks for",
             exDE: "Wir bedanken uns für die Einladung.", exTR: "Davet için teşekkür ederiz.",
             tip: "für → Akkusativ (hep)."),
+        PatternRecord(verb: "sorgen", prep: "für", kasus: .akkusativ,
+            tr: "ilgilenmek, sağlamak", en: "take care of / provide",
+            exDE: "Sie sorgt für ihre Familie.", exTR: "Ailesine bakıyor.",
+            tip: "für → Akkusativ. (Endişe için: sich sorgen um + Akkusativ.)"),
+        PatternRecord(verb: "sich eignen", prep: "für", kasus: .akkusativ,
+            tr: "uygun olmak", en: "be suitable for",
+            exDE: "Das Buch eignet sich für Anfänger.", exTR: "Kitap yeni başlayanlara uygun.",
+            tip: "für → Akkusativ (hep)."),
+        PatternRecord(verb: "sich engagieren", prep: "für", kasus: .akkusativ,
+            tr: "gönüllü çalışmak, destek vermek", en: "be committed to",
+            exDE: "Er engagiert sich für die Umwelt.", exTR: "Çevre için gönüllü çalışıyor.",
+            tip: "für → Akkusativ (hep)."),
+        PatternRecord(verb: "sich einsetzen", prep: "für", kasus: .akkusativ,
+            tr: "savunmak, için çabalamak", en: "stand up for",
+            exDE: "Sie setzt sich für die Kinder ein.", exTR: "Çocuklar için mücadele ediyor.",
+            tip: "für → Akkusativ (hep)."),
+        PatternRecord(verb: "sich schämen", prep: "für", kasus: .akkusativ,
+            tr: "utanmak", en: "be ashamed of",
+            exDE: "Ich schäme mich für meinen Fehler.", exTR: "Hatamdan utanıyorum.",
+            tip: "für → Akkusativ (hep)."),
+        PatternRecord(verb: "halten", prep: "für", kasus: .akkusativ,
+            tr: "saymak, addetmek", en: "consider (to be)",
+            exDE: "Ich halte ihn für klug.", exTR: "Onu zeki sayıyorum.",
+            tip: "halten für + Akkusativ. (Fikir sormak: halten von + Dativ.)"),
+        PatternRecord(verb: "ausgeben", prep: "für", kasus: .akkusativ,
+            tr: "(para) harcamak", en: "spend on",
+            exDE: "Wir geben viel Geld für Essen aus.", exTR: "Yemeğe çok para harcıyoruz.",
+            tip: "für → Akkusativ (hep)."),
 
-        // um + Akkusativ (um daima Akkusativ)
+        // ───────── um + Akkusativ (um daima Akkusativ) ─────────
         PatternRecord(verb: "bitten", prep: "um", kasus: .akkusativ,
-            tr: "rica etmek", en: "ask for / request",
+            tr: "rica etmek", en: "ask for",
             exDE: "Er bittet um Hilfe.", exTR: "Yardım rica ediyor.",
-            tip: "um edatı HER ZAMAN Akkusativ."),
+            tip: "um edatı HER ZAMAN Akkusativ ister."),
         PatternRecord(verb: "sich kümmern", prep: "um", kasus: .akkusativ,
             tr: "ilgilenmek, bakmak", en: "take care of",
             exDE: "Sie kümmert sich um die Kinder.", exTR: "Çocuklara bakıyor.",
             tip: "um → Akkusativ (hep)."),
         PatternRecord(verb: "sich bewerben", prep: "um", kasus: .akkusativ,
-            tr: "başvurmak", en: "apply for",
+            tr: "başvurmak (bir şey için)", en: "apply for",
             exDE: "Ich bewerbe mich um die Stelle.", exTR: "İş için başvuruyorum.",
-            tip: "um → Akkusativ. (Nereye başvuru: sich bewerben bei + Dativ.)"),
+            tip: "um → Akkusativ. (Yere başvuru: sich bewerben bei + Dativ.)"),
+        PatternRecord(verb: "sich sorgen", prep: "um", kasus: .akkusativ,
+            tr: "endişe etmek", en: "worry about",
+            exDE: "Sie sorgt sich um ihren Sohn.", exTR: "Oğlu için endişeleniyor.",
+            tip: "um → Akkusativ (hep)."),
+        PatternRecord(verb: "sich bemühen", prep: "um", kasus: .akkusativ,
+            tr: "çabalamak, gayret etmek", en: "make an effort for",
+            exDE: "Er bemüht sich um eine Lösung.", exTR: "Bir çözüm için çabalıyor.",
+            tip: "um → Akkusativ (hep)."),
+        PatternRecord(verb: "kämpfen", prep: "um", kasus: .akkusativ,
+            tr: "mücadele etmek (bir şey için)", en: "fight for",
+            exDE: "Sie kämpfen um den Sieg.", exTR: "Zafer için mücadele ediyorlar.",
+            tip: "um → Akkusativ (hep)."),
+        PatternRecord(verb: "es geht", prep: "um", kasus: .akkusativ,
+            tr: "söz konusu olmak, mevzu", en: "be about",
+            exDE: "In dem Film geht es um Liebe.", exTR: "Filmde mesele aşk.",
+            tip: "um → Akkusativ (hep). 'es geht um' kalıbı."),
 
-        // in + Akkusativ
+        // ───────── in + Akkusativ ─────────
         PatternRecord(verb: "sich verlieben", prep: "in", kasus: .akkusativ,
             tr: "âşık olmak", en: "fall in love with",
             exDE: "Er hat sich in sie verliebt.", exTR: "Ona âşık oldu.",
-            tip: "Burada in 'içine doğru' hareket → Akkusativ. sich verlieben in + -i hâli."),
+            tip: "İçine doğru hareket → sich verlieben in + Akkusativ."),
+        PatternRecord(verb: "sich verwandeln", prep: "in", kasus: .akkusativ,
+            tr: "dönüşmek", en: "turn into",
+            exDE: "Das Wasser verwandelt sich in Eis.", exTR: "Su buza dönüşüyor.",
+            tip: "Dönüşme yönü → in + Akkusativ."),
+        PatternRecord(verb: "geraten", prep: "in", kasus: .akkusativ,
+            tr: "(bir duruma) düşmek, kapılmak", en: "get into",
+            exDE: "Wir geraten in Panik.", exTR: "Paniğe kapılıyoruz.",
+            tip: "Bir duruma 'girme' → in + Akkusativ."),
+        PatternRecord(verb: "einwilligen", prep: "in", kasus: .akkusativ,
+            tr: "razı olmak, onaylamak", en: "consent to",
+            exDE: "Sie willigt in den Plan ein.", exTR: "Plana razı oluyor.",
+            tip: "einwilligen in + Akkusativ."),
 
-        // mit + Dativ (mit daima Dativ)
+        // ───────── mit + Dativ (mit daima Dativ) ─────────
         PatternRecord(verb: "sprechen", prep: "mit", kasus: .dativ,
             tr: "konuşmak (biriyle)", en: "speak with",
             exDE: "Ich spreche mit dem Lehrer.", exTR: "Öğretmenle konuşuyorum.",
-            tip: "mit edatı HER ZAMAN Dativ. Kişiyle birliktelik → -e/-le hâli."),
+            tip: "mit edatı HER ZAMAN Dativ ister."),
         PatternRecord(verb: "anfangen", prep: "mit", kasus: .dativ,
             tr: "başlamak", en: "start with",
             exDE: "Wir fangen mit der Übung an.", exTR: "Alıştırmayla başlıyoruz.",
-            tip: "mit → Dativ (hep). beginnen mit ve aufhören mit de aynı."),
+            tip: "mit → Dativ (hep). beginnen/aufhören mit de aynı."),
+        PatternRecord(verb: "beginnen", prep: "mit", kasus: .dativ,
+            tr: "başlamak", en: "begin with",
+            exDE: "Der Kurs beginnt mit einem Test.", exTR: "Kurs bir testle başlıyor.",
+            tip: "mit → Dativ (hep)."),
         PatternRecord(verb: "aufhören", prep: "mit", kasus: .dativ,
-            tr: "bırakmak, son vermek", en: "stop (doing)",
+            tr: "bırakmak, son vermek", en: "stop",
             exDE: "Hör mit dem Rauchen auf!", exTR: "Sigarayı bırak!",
             tip: "mit → Dativ (hep)."),
         PatternRecord(verb: "sich beschäftigen", prep: "mit", kasus: .dativ,
@@ -246,29 +392,61 @@ enum PatternDictionary {
             exDE: "Sie beschäftigt sich mit Kunst.", exTR: "Sanatla uğraşıyor.",
             tip: "mit → Dativ (hep)."),
         PatternRecord(verb: "rechnen", prep: "mit", kasus: .dativ,
-            tr: "hesaba katmak, beklemek", en: "count on / reckon with",
-            exDE: "Ich rechne mit deiner Hilfe.", exTR: "Yardımına güveniyorum (hesaba katıyorum).",
+            tr: "hesaba katmak, beklemek", en: "reckon with",
+            exDE: "Ich rechne mit deiner Hilfe.", exTR: "Yardımını hesaba katıyorum.",
             tip: "mit → Dativ (hep)."),
         PatternRecord(verb: "telefonieren", prep: "mit", kasus: .dativ,
             tr: "telefonla konuşmak", en: "talk on the phone with",
             exDE: "Er telefoniert mit seiner Mutter.", exTR: "Annesiyle telefonda konuşuyor.",
             tip: "mit → Dativ (hep)."),
+        PatternRecord(verb: "sich treffen", prep: "mit", kasus: .dativ,
+            tr: "buluşmak", en: "meet with",
+            exDE: "Ich treffe mich mit Freunden.", exTR: "Arkadaşlarla buluşuyorum.",
+            tip: "mit → Dativ (hep)."),
+        PatternRecord(verb: "sich verabreden", prep: "mit", kasus: .dativ,
+            tr: "sözleşmek, randevulaşmak", en: "arrange to meet",
+            exDE: "Sie verabredet sich mit ihm.", exTR: "Onunla sözleşiyor.",
+            tip: "mit → Dativ (hep)."),
+        PatternRecord(verb: "vergleichen", prep: "mit", kasus: .dativ,
+            tr: "karşılaştırmak", en: "compare with",
+            exDE: "Vergleiche den Preis mit dem Original.", exTR: "Fiyatı orijinaliyle karşılaştır.",
+            tip: "mit → Dativ (hep)."),
+        PatternRecord(verb: "sich auseinandersetzen", prep: "mit", kasus: .dativ,
+            tr: "ele almak, üzerine kafa yormak", en: "engage with",
+            exDE: "Wir setzen uns mit dem Thema auseinander.", exTR: "Konuyu derinlemesine ele alıyoruz.",
+            tip: "mit → Dativ (hep)."),
+        PatternRecord(verb: "zufrieden sein", prep: "mit", kasus: .dativ,
+            tr: "memnun olmak", en: "be satisfied with",
+            exDE: "Ich bin mit dem Ergebnis zufrieden.", exTR: "Sonuçtan memnunum.",
+            tip: "mit → Dativ (hep)."),
+        PatternRecord(verb: "einverstanden sein", prep: "mit", kasus: .dativ,
+            tr: "hemfikir olmak, kabul etmek", en: "agree with",
+            exDE: "Bist du mit dem Plan einverstanden?", exTR: "Planı kabul ediyor musun?",
+            tip: "mit → Dativ (hep)."),
 
-        // bei + Dativ
+        // ───────── bei + Dativ ─────────
         PatternRecord(verb: "helfen", prep: "bei", kasus: .dativ,
             tr: "yardım etmek (bir konuda)", en: "help with",
             exDE: "Kannst du mir bei der Arbeit helfen?", exTR: "İşte bana yardım eder misin?",
-            tip: "bei edatı HER ZAMAN Dativ. (Kime yardım kısmı da Dativ: hilf mir.)"),
+            tip: "bei edatı HER ZAMAN Dativ ister."),
         PatternRecord(verb: "sich entschuldigen", prep: "bei", kasus: .dativ,
             tr: "özür dilemek (birinden)", en: "apologize to",
             exDE: "Entschuldige dich bei ihr!", exTR: "Ondan özür dile!",
-            tip: "bei → Dativ. (Bir şey için özür: ... für + Akkusativ.)"),
+            tip: "bei → Dativ. (Bir şey için: ... für + Akkusativ.)"),
+        PatternRecord(verb: "sich bedanken", prep: "bei", kasus: .dativ,
+            tr: "teşekkür etmek (birine)", en: "thank (someone)",
+            exDE: "Ich bedanke mich bei dir.", exTR: "Sana teşekkür ediyorum.",
+            tip: "bei → Dativ (hep)."),
+        PatternRecord(verb: "sich erkundigen", prep: "bei", kasus: .dativ,
+            tr: "(birinden) bilgi sormak", en: "inquire (of someone)",
+            exDE: "Erkundige dich bei der Bank.", exTR: "Bankaya sor (bilgi al).",
+            tip: "bei → Dativ. (Konu: sich erkundigen nach + Dativ.)"),
 
-        // zu + Dativ (zu daima Dativ)
+        // ───────── zu + Dativ (zu daima Dativ) ─────────
         PatternRecord(verb: "gehören", prep: "zu", kasus: .dativ,
-            tr: "ait olmak", en: "belong to",
+            tr: "ait olmak, parçası olmak", en: "belong to",
             exDE: "Das gehört zu meiner Arbeit.", exTR: "Bu, işimin bir parçası.",
-            tip: "zu edatı HER ZAMAN Dativ."),
+            tip: "zu edatı HER ZAMAN Dativ ister."),
         PatternRecord(verb: "passen", prep: "zu", kasus: .dativ,
             tr: "yakışmak, uymak", en: "match / suit",
             exDE: "Die Jacke passt zu der Hose.", exTR: "Ceket pantolona yakışıyor.",
@@ -280,31 +458,67 @@ enum PatternDictionary {
         PatternRecord(verb: "gratulieren", prep: "zu", kasus: .dativ,
             tr: "kutlamak, tebrik etmek", en: "congratulate on",
             exDE: "Ich gratuliere dir zum Geburtstag.", exTR: "Doğum gününü kutlarım.",
-            tip: "zu → Dativ (hep). zu dem → zum kısalmasına dikkat."),
+            tip: "zu → Dativ (hep). zu dem → zum."),
+        PatternRecord(verb: "führen", prep: "zu", kasus: .dativ,
+            tr: "yol açmak, -e götürmek", en: "lead to",
+            exDE: "Stress führt zu Problemen.", exTR: "Stres sorunlara yol açar.",
+            tip: "zu → Dativ (hep)."),
+        PatternRecord(verb: "beitragen", prep: "zu", kasus: .dativ,
+            tr: "katkıda bulunmak", en: "contribute to",
+            exDE: "Jeder trägt zum Erfolg bei.", exTR: "Herkes başarıya katkıda bulunuyor.",
+            tip: "zu → Dativ (hep)."),
+        PatternRecord(verb: "neigen", prep: "zu", kasus: .dativ,
+            tr: "eğiliminde olmak", en: "tend to",
+            exDE: "Er neigt zu Übertreibung.", exTR: "Abartma eğiliminde.",
+            tip: "zu → Dativ (hep)."),
+        PatternRecord(verb: "zwingen", prep: "zu", kasus: .dativ,
+            tr: "zorlamak", en: "force to",
+            exDE: "Niemand zwingt dich zu dieser Wahl.", exTR: "Kimse seni bu seçime zorlamıyor.",
+            tip: "zu → Dativ (hep)."),
 
-        // von + Dativ (von daima Dativ)
+        // ───────── von + Dativ (von daima Dativ) ─────────
         PatternRecord(verb: "träumen", prep: "von", kasus: .dativ,
             tr: "hayalini kurmak, rüyasını görmek", en: "dream of",
             exDE: "Sie träumt von einer Reise.", exTR: "Bir seyahatin hayalini kuruyor.",
-            tip: "von edatı HER ZAMAN Dativ."),
+            tip: "von edatı HER ZAMAN Dativ ister."),
         PatternRecord(verb: "erzählen", prep: "von", kasus: .dativ,
             tr: "anlatmak (-den bahsederek)", en: "tell about",
             exDE: "Erzähl mir von deinem Tag!", exTR: "Bana gününü anlat!",
-            tip: "von → Dativ (hep). (Konu vurgusu için: erzählen über + Akkusativ.)"),
+            tip: "von → Dativ (hep)."),
         PatternRecord(verb: "abhängen", prep: "von", kasus: .dativ,
             tr: "bağlı olmak", en: "depend on",
             exDE: "Das hängt vom Wetter ab.", exTR: "Bu, havaya bağlı.",
-            tip: "von → Dativ (hep). von dem → vom kısalır."),
+            tip: "von → Dativ (hep). von dem → vom."),
         PatternRecord(verb: "halten", prep: "von", kasus: .dativ,
-            tr: "(bir şey) hakkında ne düşünmek", en: "think of (opinion)",
+            tr: "(bir şey) hakkında ne düşünmek", en: "think of",
             exDE: "Was hältst du von dem Plan?", exTR: "Bu plan hakkında ne düşünüyorsun?",
-            tip: "von → Dativ (hep). 'Fikrin ne?' anlamında kalıp."),
+            tip: "Fikir sorma: halten von + Dativ. (Saymak: halten für + Akkusativ.)"),
+        PatternRecord(verb: "profitieren", prep: "von", kasus: .dativ,
+            tr: "yararlanmak", en: "benefit from",
+            exDE: "Wir profitieren von der Erfahrung.", exTR: "Deneyimden yararlanıyoruz.",
+            tip: "von → Dativ (hep)."),
+        PatternRecord(verb: "sich erholen", prep: "von", kasus: .dativ,
+            tr: "(yorgunluktan) toparlanmak", en: "recover from",
+            exDE: "Ich erhole mich von der Reise.", exTR: "Yolculuktan toparlanıyorum.",
+            tip: "von → Dativ (hep)."),
+        PatternRecord(verb: "sich verabschieden", prep: "von", kasus: .dativ,
+            tr: "vedalaşmak", en: "say goodbye to",
+            exDE: "Er verabschiedet sich von den Gästen.", exTR: "Misafirlerle vedalaşıyor.",
+            tip: "von → Dativ (hep)."),
+        PatternRecord(verb: "überzeugen", prep: "von", kasus: .dativ,
+            tr: "ikna etmek", en: "convince of",
+            exDE: "Sie überzeugt mich von ihrer Idee.", exTR: "Beni fikrine ikna ediyor.",
+            tip: "von → Dativ (hep)."),
+        PatternRecord(verb: "leben", prep: "von", kasus: .dativ,
+            tr: "geçinmek (-le)", en: "live on",
+            exDE: "Er lebt von seiner Rente.", exTR: "Emekli maaşıyla geçiniyor.",
+            tip: "von → Dativ (hep)."),
 
-        // nach + Dativ (nach daima Dativ)
+        // ───────── nach + Dativ (nach daima Dativ) ─────────
         PatternRecord(verb: "fragen", prep: "nach", kasus: .dativ,
-            tr: "sormak (-i sormak)", en: "ask about/for",
+            tr: "sormak (-i sormak)", en: "ask about",
             exDE: "Er fragt nach dem Weg.", exTR: "Yolu soruyor.",
-            tip: "nach edatı HER ZAMAN Dativ."),
+            tip: "nach edatı HER ZAMAN Dativ ister."),
         PatternRecord(verb: "suchen", prep: "nach", kasus: .dativ,
             tr: "aramak", en: "search for",
             exDE: "Ich suche nach meinem Schlüssel.", exTR: "Anahtarımı arıyorum.",
@@ -313,8 +527,24 @@ enum PatternDictionary {
             tr: "özlemek, hasret çekmek", en: "long for",
             exDE: "Ich sehne mich nach dem Sommer.", exTR: "Yazı özlüyorum.",
             tip: "nach → Dativ (hep)."),
+        PatternRecord(verb: "riechen", prep: "nach", kasus: .dativ,
+            tr: "(bir şey gibi) kokmak", en: "smell of",
+            exDE: "Es riecht nach Kaffee.", exTR: "Kahve kokuyor.",
+            tip: "nach → Dativ (hep)."),
+        PatternRecord(verb: "schmecken", prep: "nach", kasus: .dativ,
+            tr: "(bir şey) tadında olmak", en: "taste of",
+            exDE: "Das schmeckt nach Zitrone.", exTR: "Bu limon tadında.",
+            tip: "nach → Dativ (hep)."),
+        PatternRecord(verb: "sich erkundigen", prep: "nach", kasus: .dativ,
+            tr: "sormak, bilgi almak (bir şey)", en: "inquire about",
+            exDE: "Sie erkundigt sich nach dem Preis.", exTR: "Fiyatı soruyor.",
+            tip: "nach → Dativ (hep)."),
+        PatternRecord(verb: "streben", prep: "nach", kasus: .dativ,
+            tr: "peşinde olmak, çabalamak", en: "strive for",
+            exDE: "Er strebt nach Erfolg.", exTR: "Başarının peşinde.",
+            tip: "nach → Dativ (hep)."),
 
-        // vor + Dativ (korku/koruma grubunda Dativ)
+        // ───────── vor + Dativ (korku / koruma / sebep) ─────────
         PatternRecord(verb: "Angst haben", prep: "vor", kasus: .dativ,
             tr: "korkmak", en: "be afraid of",
             exDE: "Sie hat Angst vor dem Hund.", exTR: "Köpekten korkuyor.",
@@ -322,16 +552,54 @@ enum PatternDictionary {
         PatternRecord(verb: "sich fürchten", prep: "vor", kasus: .dativ,
             tr: "korkmak", en: "be scared of",
             exDE: "Er fürchtet sich vor der Dunkelheit.", exTR: "Karanlıktan korkuyor.",
-            tip: "vor + Dativ. Korku/uyarı/koruma grubu Dativ alır (warnen/schützen vor)."),
+            tip: "Korku/koruma grubu vor + Dativ alır."),
         PatternRecord(verb: "warnen", prep: "vor", kasus: .dativ,
             tr: "uyarmak", en: "warn about",
             exDE: "Die Polizei warnt vor dem Sturm.", exTR: "Polis fırtınaya karşı uyarıyor.",
-            tip: "vor + Dativ. Korku/tehlike grubuyla aynı mantık."),
+            tip: "vor + Dativ (tehlike/korku grubu)."),
+        PatternRecord(verb: "schützen", prep: "vor", kasus: .dativ,
+            tr: "korumak (-den)", en: "protect from",
+            exDE: "Die Creme schützt vor der Sonne.", exTR: "Krem güneşten koruyor.",
+            tip: "vor + Dativ (koruma grubu)."),
+        PatternRecord(verb: "fliehen", prep: "vor", kasus: .dativ,
+            tr: "kaçmak (-den)", en: "flee from",
+            exDE: "Sie fliehen vor dem Krieg.", exTR: "Savaştan kaçıyorlar.",
+            tip: "vor + Dativ."),
+        PatternRecord(verb: "Respekt haben", prep: "vor", kasus: .dativ,
+            tr: "saygı duymak", en: "have respect for",
+            exDE: "Ich habe Respekt vor ihrer Arbeit.", exTR: "İşine saygı duyuyorum.",
+            tip: "vor + Dativ."),
 
-        // aus + Dativ
+        // ───────── aus + Dativ ─────────
         PatternRecord(verb: "bestehen", prep: "aus", kasus: .dativ,
             tr: "-den oluşmak", en: "consist of",
             exDE: "Das Team besteht aus fünf Leuten.", exTR: "Takım beş kişiden oluşuyor.",
-            tip: "aus edatı HER ZAMAN Dativ.")
+            tip: "aus edatı HER ZAMAN Dativ ister. (Israr: bestehen auf + Dativ.)"),
+        PatternRecord(verb: "folgen", prep: "aus", kasus: .dativ,
+            tr: "(sonuç olarak) çıkmak", en: "follow from",
+            exDE: "Daraus folgt ein Problem.", exTR: "Bundan bir sorun doğuyor.",
+            tip: "aus → Dativ (hep)."),
+        PatternRecord(verb: "entstehen", prep: "aus", kasus: .dativ,
+            tr: "doğmak, oluşmak", en: "arise from",
+            exDE: "Aus der Idee entstand ein Projekt.", exTR: "Fikirden bir proje doğdu.",
+            tip: "aus → Dativ (hep)."),
+
+        // ───────── gegen + Akkusativ (gegen daima Akkusativ) ─────────
+        PatternRecord(verb: "kämpfen", prep: "gegen", kasus: .akkusativ,
+            tr: "karşı mücadele etmek", en: "fight against",
+            exDE: "Wir kämpfen gegen die Krise.", exTR: "Krize karşı mücadele ediyoruz.",
+            tip: "gegen edatı HER ZAMAN Akkusativ ister."),
+        PatternRecord(verb: "protestieren", prep: "gegen", kasus: .akkusativ,
+            tr: "protesto etmek", en: "protest against",
+            exDE: "Sie protestieren gegen das Gesetz.", exTR: "Yasayı protesto ediyorlar.",
+            tip: "gegen → Akkusativ (hep)."),
+        PatternRecord(verb: "sich wehren", prep: "gegen", kasus: .akkusativ,
+            tr: "direnmek, kendini savunmak", en: "defend oneself against",
+            exDE: "Er wehrt sich gegen die Kritik.", exTR: "Eleştiriye karşı kendini savunuyor.",
+            tip: "gegen → Akkusativ (hep)."),
+        PatternRecord(verb: "verstoßen", prep: "gegen", kasus: .akkusativ,
+            tr: "ihlal etmek", en: "violate",
+            exDE: "Das verstößt gegen die Regeln.", exTR: "Bu, kuralları ihlal ediyor.",
+            tip: "gegen → Akkusativ (hep).")
     ]
 }
