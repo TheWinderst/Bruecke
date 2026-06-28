@@ -15,6 +15,13 @@ final class DictionaryService {
         let term = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !term.isEmpty else { completion(nil); return }
 
+        // Önce edat kalıbı mı diye bak (sich beschweren über, warten auf ...).
+        // Kullanıcı tam kalıbı, sadece fiili ya da fiil+edatı seçmiş olabilir.
+        if let p = PatternDictionary.lookup(term) {
+            completion(p)
+            return
+        }
+
         if let hit = SampleDictionary.lookup(term) {
             completion(hit)
             return

@@ -48,6 +48,8 @@ struct WordCardView: View {
 
             translationBox.padding(.top, 14)
 
+            if let p = entry.pattern { patternBox(p).padding(.top, 12) }
+
             if settings.showEnglish, let en = entry.english, !en.isEmpty {
                 detailLine("İngilizce", en)
             }
@@ -152,6 +154,38 @@ struct WordCardView: View {
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(.quaternary, in: RoundedRectangle(cornerRadius: 10))
+    }
+
+    // Edat kalıbı kutusu: edat + yönettiği hâl ("ek") + hatırlatma ipucu.
+    // Akkusativ mavi, Dativ pembe ile renklenir.
+    private func patternBox(_ p: VerbPattern) -> some View {
+        let c = p.kasus == .akkusativ ? cBlue : cPink
+        return VStack(alignment: .leading, spacing: 9) {
+            HStack(spacing: 8) {
+                Text(p.preposition)
+                    .font(.system(size: 16, weight: .semibold)).foregroundStyle(c)
+                    .padding(.horizontal, 11).padding(.vertical, 5)
+                    .background(c.opacity(0.16), in: Capsule())
+                Image(systemName: "plus").font(.system(size: 9, weight: .bold)).foregroundStyle(.tertiary)
+                Text(p.kasus.name)
+                    .font(.system(size: 14, weight: .semibold)).foregroundStyle(.primary)
+                Text(p.kasus.short)
+                    .font(.system(size: 11, weight: .bold)).foregroundStyle(.white)
+                    .padding(.horizontal, 7).padding(.vertical, 2)
+                    .background(c, in: Capsule())
+                Spacer(minLength: 0)
+                Text(p.kasus.trHint).font(.system(size: 11)).foregroundStyle(.secondary)
+            }
+            HStack(alignment: .top, spacing: 6) {
+                Image(systemName: "lightbulb.fill").font(.system(size: 11)).foregroundStyle(c.opacity(0.9))
+                Text(p.tip).font(.system(size: 12)).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(c.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
+        .overlay(RoundedRectangle(cornerRadius: 10).stroke(c.opacity(0.25), lineWidth: 1))
     }
 
     private func detailLine(_ label: String, _ value: String) -> some View {

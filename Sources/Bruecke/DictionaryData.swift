@@ -13,6 +13,25 @@ struct Example: Codable, Hashable {
     let tr: String
 }
 
+// Almanca dilbilgisi hâli (Kasus). Edat kalıplarında hangi "ek"in geleceğini belirler.
+enum Kasus: String, Codable {
+    case akkusativ, dativ
+
+    var short: String { self == .akkusativ ? "+A" : "+D" }
+    var name: String { self == .akkusativ ? "Akkusativ" : "Dativ" }
+    // Türkçe konuşana kaba bir köprü: Akkusativ ≈ -i hâli, Dativ ≈ -e hâli.
+    var trHint: String { self == .akkusativ ? "-i hâli" : "-e hâli" }
+}
+
+// Edat kalıbı: bir fiilin sabit edatı ve o edatın yönettiği hâl + hatırlatma ipucu.
+// Örn. "sich beschweren über" → edat "über", hâl Akkusativ.
+struct VerbPattern: Codable, Hashable {
+    let verb: String          // "sich beschweren"
+    let preposition: String   // "über"
+    let kasus: Kasus          // .akkusativ
+    let tip: String           // Türkçe ipucu
+}
+
 struct WordEntry: Codable, Hashable, Identifiable {
     let lemma: String
     var kind: EntryKind
@@ -29,6 +48,9 @@ struct WordEntry: Codable, Hashable, Identifiable {
     var synonyms: [String]? = nil
     // Ağ hatası gibi durumlarda kullanıcıya gösterilecek mesaj (çekilemedi vb.).
     var errorMessage: String? = nil
+
+    // Edat kalıbı (Verb mit Präposition) bilgisi; bu kelime bir kalıpsa dolu, değilse nil.
+    var pattern: VerbPattern? = nil
 
     // Eş sesli/eş yazımlı kelimeler (der/die See, das/der Band) çakışmasın diye
     // kimliği yalnızca lemma değil, tür+cinsiyetle birlikte belirleriz.
