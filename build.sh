@@ -36,7 +36,7 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
   <string>Telaffuz alıştırması için söylediklerini dinler.</string>
   <key>NSSpeechRecognitionUsageDescription</key>
   <string>Telaffuzunu değerlendirmek için konuşmanı tanır.</string>
-  <key>NSHumanReadableCopyright</key> <string>© 2026 thewinderst · MIT</string>
+  <key>NSHumanReadableCopyright</key> <string>© 2026 thewinderst · GPL-3.0</string>
   <key>NSServices</key>
   <array>
     <dict>

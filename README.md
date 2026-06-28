@@ -56,6 +56,8 @@ Brücke'nin kendi sunucusu yoktur. Aranan kelime yalnızca yukarıda listelenen 
 
 ## Lisans
 
-MIT lisansı altında dağıtılır. Kodu serbestçe kullanabilir, değiştirebilir ve dağıtabilirsiniz.
+Telif hakkı © 2026 thewinderst. GNU General Public License v3 (GPL-3.0) altında dağıtılır.
+
+Kodu inceleyebilir, çalıştırabilir ve üzerine geliştirme yapabilirsiniz. Ancak değiştirilmiş bir sürümü dağıtırsanız, onu da aynı GPL-3.0 lisansıyla ve açık kaynak olarak yayımlamanız, telif sahibini belirtmeniz gerekir. Kod kapatılıp özel mülk hâline getirilemez ya da kapalı kaynak bir üründe satılamaz. Ayrıntılar [LICENSE](LICENSE) dosyasındadır.
 
 Geliştiren: thewinderst

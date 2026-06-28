@@ -149,7 +149,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         Kaynaklar: Wiktionary (CC BY-SA), Tatoeba (CC BY), OpenThesaurus (CC BY-SA), \
         çeviri Google (resmî olmayan) / LibreTranslate.
 
-        © 2026 thewinderst · MIT Lisansı
+        © 2026 thewinderst · GPL-3.0 Lisansı
         """
         alert.runModal()
     }
