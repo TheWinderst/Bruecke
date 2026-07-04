@@ -18,6 +18,8 @@ Bir kelime seçilip kart açıldığında şunlar görünür:
 
 Kelime ve örnek cümleler Apple'ın Almanca seslendirmesiyle dinlenebilir; normal hız, yavaş veya hece hece seçenekleri vardır. Mikrofona söylenen telaffuz için puan alınabilir. Kaydedilen kelimeler ayrı bir pencerede toplanır ve sonradan tekrar edilebilir.
 
+Elde metin seçili değilse de çeviri yapılabilir. Menü çubuğundaki **Kelime yaz ve çevir…** ile ya da hiçbir yer seçili değilken `⌘⇧D`'ye basınca küçük bir yazma kutusu açılır; kelime yazılıp Enter'a basıldığında aynı kart görünür. Bu yol Erişilebilirlik iznine ihtiyaç duymaz.
+
 Sağ tık menüsünde "Brücke'de çevir" servisi de bulunur.
 
 Arayüz native bileşenlerle kuruludur: macOS 26 Liquid Glass yüzeyleri ve sistemin kendi yazı tipleri kullanılır.

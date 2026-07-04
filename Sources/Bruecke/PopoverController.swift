@@ -1,6 +1,13 @@
 import AppKit
 import SwiftUI
 
+// Borderless panel'ler varsayılan olarak anahtar (key) olamaz → metin alanı odak
+// alamaz. Arama kutusuna yazabilmek için bunu geçersiz kılıyoruz.
+final class KeyablePanel: NSPanel {
+    override var canBecomeKey: Bool { true }
+    override var canBecomeMain: Bool { true }
+}
+
 @MainActor
 final class PopoverController {
     private var panel: NSPanel?
@@ -48,6 +55,43 @@ final class PopoverController {
         panel.orderFrontRegardless()
         self.panel = panel
 
+        installDismissMonitors()
+    }
+
+    // Kelime seçmeden doğrudan yazıp çevirmek için klavye alan arama kutusu.
+    // Kullanıcı Enter'a basınca onSubmit çağrılır; sonuç kartı gösterilince
+    // (present → show) bu panel otomatik kapanır (show önce close() çağırır).
+    func showSearch(at screenPoint: NSPoint, onSubmit: @escaping (String) -> Void) {
+        close()
+
+        let root = DictionarySearchView(onSubmit: onSubmit)
+        let hosting = NSHostingView(rootView: root)
+        hosting.layout()
+        let size = hosting.fittingSize
+
+        let panel = KeyablePanel(
+            contentRect: NSRect(origin: .zero, size: size),
+            styleMask: [.borderless],
+            backing: .buffered,
+            defer: false
+        )
+        panel.isFloatingPanel = true
+        panel.level = .floating
+        panel.backgroundColor = .clear
+        panel.isOpaque = false
+        panel.hasShadow = true
+        panel.contentView = hosting
+
+        panel.setFrameOrigin(clamp(NSPoint(x: screenPoint.x, y: screenPoint.y - size.height), size: size))
+        NSApp.activate(ignoringOtherApps: true)   // menü çubuğu uygulaması → alan odak alabilsin
+        panel.makeKeyAndOrderFront(nil)
+        self.panel = panel
+
+        installDismissMonitors()
+    }
+
+    // Dışarı tıklama ve ESC ile kapatma izleyicileri (hem kart hem arama kutusu için).
+    private func installDismissMonitors() {
         clickMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] _ in
             self?.close()
         }

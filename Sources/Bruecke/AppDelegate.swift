@@ -37,6 +37,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         let menu = NSMenu()
         menu.addItem(withTitle: "Seçili kelimeyi çevir  (⌘⇧D)", action: #selector(triggerLookup), keyEquivalent: "")
+        menu.addItem(withTitle: "Kelime yaz ve çevir…", action: #selector(openSearch), keyEquivalent: "")
         menu.addItem(withTitle: "Kaydedilen kelimeler…", action: #selector(showSaved), keyEquivalent: "")
         menu.addItem(withTitle: "Ayarlar…", action: #selector(showSettings), keyEquivalent: ",")
         menu.addItem(.separator())
@@ -54,10 +55,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             guard let self, gen == self.lookupGeneration else { return }
             let clean = (text ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
             if clean.isEmpty {
-                self.present(self.infoEntry)
+                // Seçim yoksa boş "önce kelime seç" kartı yerine doğrudan yazma
+                // kutusunu aç — kullanıcı kendi kelimesini yazıp çevirebilsin.
+                self.presentSearch()
                 return
             }
             self.lookupAndShow(clean, gen: gen)
+        }
+    }
+
+    @objc private func openSearch() {
+        presentSearch()
+    }
+
+    // Yazıp çevirme kutusunu imlecin olduğu yerde açar (menü çubuğundan çağrılınca
+    // sağ üstte belirir). Enter'a basınca kelimeyi arayıp kartı gösterir.
+    private func presentSearch() {
+        popover.showSearch(at: NSEvent.mouseLocation) { [weak self] term in
+            guard let self else { return }
+            self.lookupGeneration += 1
+            self.lookupAndShow(term, gen: self.lookupGeneration)
         }
     }
 
@@ -113,16 +130,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func bringToFront(_ window: NSWindow?) {
         NSApp.activate(ignoringOtherApps: true)
         window?.makeKeyAndOrderFront(nil)
-    }
-
-    private var infoEntry: WordEntry {
-        WordEntry(
-            lemma: "Brücke çalışıyor 👍",
-            kind: .other, gender: .none, posLabel: "",
-            plural: nil, ipa: nil, praeteritum: nil, perfekt: nil,
-            translation: "Önce bir kelime seç, sonra ⌘⇧D'ye bas. Çıkmıyorsa Erişilebilirlik iznini kontrol et.",
-            examples: []
-        )
     }
 
     private var cannotTranslateEntry: WordEntry {
