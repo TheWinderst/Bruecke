@@ -80,11 +80,22 @@ final class PopoverController {
         panel.backgroundColor = .clear
         panel.isOpaque = false
         panel.hasShadow = true
+
+        // Kenarlık temizliği: pencere anahtar/aktif olunca hosting katmanı köşelerde
+        // opak bir dikdörtgen çizip cam kartın yuvarlak köşelerinin dışını siyah
+        // bırakıyordu. Katmanı şeffaflaştırıp aynı 24px yuvarlağa kırpıyoruz; böylece
+        // pencere gölgesi de yuvarlak biçime uyuyor (invalidateShadow ile tazelenir).
+        hosting.wantsLayer = true
+        hosting.layer?.backgroundColor = NSColor.clear.cgColor
+        hosting.layer?.cornerRadius = 24
+        hosting.layer?.cornerCurve = .continuous
+        hosting.layer?.masksToBounds = true
         panel.contentView = hosting
 
         panel.setFrameOrigin(clamp(NSPoint(x: screenPoint.x, y: screenPoint.y - size.height), size: size))
         NSApp.activate(ignoringOtherApps: true)   // menü çubuğu uygulaması → alan odak alabilsin
         panel.makeKeyAndOrderFront(nil)
+        panel.invalidateShadow()
         self.panel = panel
 
         installDismissMonitors()
