@@ -28,6 +28,12 @@ final class AppSettings: ObservableObject {
         }
     }
 
+    // Yazıp çevirme kutusunun yönü: false = Almanca→Türkçe (varsayılan),
+    // true = Türkçe→Almanca. Kutudaki düğmeden değişir, sonraki açılışta hatırlanır.
+    @Published var searchReversed: Bool {
+        didSet { UserDefaults.standard.set(searchReversed, forKey: "searchReversed") }
+    }
+
     @Published var translationEngine: TranslationEngine {
         didSet { UserDefaults.standard.set(translationEngine.rawValue, forKey: "translationEngine") }
     }
@@ -43,6 +49,7 @@ final class AppSettings: ObservableObject {
         showAlternates = b("showAlternates")
         showSynonyms = b("showSynonyms")
         keepHistory = b("keepHistory")
+        searchReversed = d.bool(forKey: "searchReversed")
         translationEngine = TranslationEngine(rawValue: d.string(forKey: "translationEngine") ?? "") ?? .google
         libreEndpoint = d.string(forKey: "libreEndpoint") ?? "https://libretranslate.com"
     }

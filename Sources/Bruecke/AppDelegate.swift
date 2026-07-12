@@ -77,11 +77,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     // Yazıp çevirme kutusunu imlecin olduğu yerde açar (menü çubuğundan çağrılınca
     // sağ üstte belirir). Enter'a basınca kelimeyi arayıp kartı gösterir.
     private func presentSearch() {
-        popover.showSearch(at: NSEvent.mouseLocation) { [weak self] term in
+        popover.showSearch(at: NSEvent.mouseLocation) { [weak self] term, direction in
             guard let self else { return }
             self.lookupGeneration += 1
             // Çapa vermiyoruz: sonuç kartı arama kutusunun olduğu noktada açılır.
-            self.lookupAndShow(term, gen: self.lookupGeneration, at: nil)
+            self.lookupAndShow(term, direction: direction, gen: self.lookupGeneration, at: nil)
         }
     }
 
@@ -92,13 +92,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         lookupAndShow(clean, gen: lookupGeneration, at: NSEvent.mouseLocation)
     }
 
-    private func lookupAndShow(_ term: String, gen: Int, at anchor: NSPoint?) {
+    private func lookupAndShow(_ term: String, direction: LookupDirection = .auto, gen: Int, at anchor: NSPoint?) {
         // Sonuç anında (önbellek/örnek sözlük) gelirse yükleme kartını hiç
         // göstermeyiz — kart bir karelik parlayıp sönmesin. Yükleme kartı
         // gösterildiyse sonuç kartı aynı noktada onun yerini alır.
         var completed = false
         var showedLoading = false
-        dictionary.lookup(term) { [weak self] entry in
+        dictionary.lookup(term, direction: direction) { [weak self] entry in
             guard let self else { return }
             completed = true
             guard gen == self.lookupGeneration else { return }

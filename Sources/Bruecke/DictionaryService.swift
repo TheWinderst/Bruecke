@@ -1,7 +1,25 @@
 import Foundation
 
+// Arama yönü. .auto: metindeki harf ipuçlarından karar verilir, belirsizse Almanca.
+enum LookupDirection {
+    case deToTr, trToDe, auto
+}
+
 @MainActor
 final class DictionaryService {
+
+    // Türkçeye özgü harfler (ö/ü iki dilde de olduğundan ayırt etmez).
+    private static let turkishMarks = CharacterSet(charactersIn: "ıİşŞğĞ")
+    // Almancaya özgü harfler.
+    private static let germanMarks = CharacterSet(charactersIn: "ßäÄ")
+
+    // İstenen yönü metindeki harf ipuçlarıyla düzeltir: "ğ/ş/ı" varsa kelime
+    // Türkçedir, "ß/ä" varsa Almancadır — düğme ne derse desin doğru yöne gider.
+    private func resolve(_ direction: LookupDirection, term: String) -> LookupDirection {
+        if term.rangeOfCharacter(from: Self.turkishMarks) != nil { return .trToDe }
+        if term.rangeOfCharacter(from: Self.germanMarks) != nil { return .deToTr }
+        return direction == .auto ? .deToTr : direction
+    }
 
     // Hangi çeviri motoru kullanılacak (kullanıcı ayarından).
     private var engine: TranslateEngineConfig {
@@ -11,9 +29,14 @@ final class DictionaryService {
         }
     }
 
-    func lookup(_ raw: String, completion: @escaping (WordEntry?) -> Void) {
+    func lookup(_ raw: String, direction: LookupDirection = .auto, completion: @escaping (WordEntry?) -> Void) {
         let term = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !term.isEmpty else { completion(nil); return }
+
+        if resolve(direction, term: term) == .trToDe {
+            reverseLookup(term, completion: completion)
+            return
+        }
 
         // Önce edat kalıbı mı diye bak (sich beschweren über, warten auf ...).
         // Kullanıcı tam kalıbı, sadece fiili ya da fiil+edatı seçmiş olabilir.
@@ -71,6 +94,96 @@ final class DictionaryService {
                 self.buildEntry(word: word, result: result, engine: engine) { entry in
                     if let entry { HistoryStore.shared.record(term: word, entry: entry) }
                     completion(entry)
+                }
+            }
+        }
+    }
+
+    // Türkçe → Almanca: önce Türkçe kelime Almancaya çevrilir, sonra bulunan
+    // Almanca kelime normal sözlük hattından geçirilip tam kart çıkarılır
+    // (artikel, çoğul, çekim, örnekler). Kartın "Türkçe" kutusunda kullanıcının
+    // sorduğu kelime gösterilir; hattın kendi geri-çevirisi farklıysa
+    // "diğer anlamlar"a iner.
+    private func reverseLookup(_ term: String, completion: @escaping (WordEntry?) -> Void) {
+        // Ters aramalar Türkçe anahtarla da saklanır; "tr→de|" öneki, Türkçe
+        // kelimenin olası bir Almanca eş yazımıyla (Bank gibi) çakışmasını önler.
+        let cacheKey = "tr→de|" + term
+        if let cached = HistoryStore.shared.cached(cacheKey) {
+            HistoryStore.shared.record(term: cacheKey, entry: cached)
+            completion(cached)
+            return
+        }
+
+        let engine = self.engine
+
+        TranslateClient.word(term, from: "tr", to: "de", engine: engine) { main, alts, failed in
+            DispatchQueue.main.async {
+                let de = (main ?? "").trimmingCharacters(in: CharacterSet(charactersIn: " .,;!?"))
+                guard !de.isEmpty else {
+                    var e = WordEntry(lemma: term, kind: .other, gender: .none, posLabel: "",
+                                      plural: nil, ipa: nil, praeteritum: nil, perfekt: nil,
+                                      translation: "—", examples: [])
+                    e.reverseQuery = term
+                    e.errorMessage = failed
+                        ? "Çeviri alınamadı — internet bağlantını kontrol et."
+                        : "Almanca karşılık bulunamadı."
+                    completion(e)
+                    return
+                }
+                let extras = alts.filter { $0.caseInsensitiveCompare(de) != .orderedSame }
+
+                let finish: (WordEntry) -> Void = { built in
+                    var e = built
+                    e.reverseQuery = term
+                    if e.germanAlternates == nil, !extras.isEmpty {
+                        e.germanAlternates = Array(extras.prefix(4))
+                    }
+                    let back = e.translation
+                    if !back.isEmpty, back != "—",
+                       HistoryStore.normalize(back) != HistoryStore.normalize(term) {
+                        var a = e.alternates ?? []
+                        if !a.contains(where: { $0.caseInsensitiveCompare(back) == .orderedSame }) {
+                            a.insert(back, at: 0)
+                        }
+                        e.alternates = Array(a.prefix(4))
+                    }
+                    e.translation = term
+                    // Karşılık elimizde; hattın ara adımlarından kalan ağ uyarısı kartı kirletmesin.
+                    e.errorMessage = nil
+                    // İki anahtarla kaydet: Türkçe sorgu (tekrarında anında açılır)
+                    // ve Almanca kelime (son aramalardan tıklanınca anında açılır).
+                    HistoryStore.shared.record(term: cacheKey, entry: e)
+                    HistoryStore.shared.record(term: de, entry: e)
+                    completion(e)
+                }
+
+                if let p = PatternDictionary.lookup(de) { finish(p); return }
+                if let hit = SampleDictionary.lookup(de) { finish(hit); return }
+                if let cached = HistoryStore.shared.cached(de) { finish(cached); return }
+
+                // Çok kelimeli karşılık (sich freuen, zu Hause ...): Wiktionary'de
+                // tek başlık yok; sade bir ifade kartı yeterli.
+                if de.contains(" ") {
+                    let e = WordEntry(lemma: de, kind: .phrase, gender: .none, posLabel: "ifade",
+                                      plural: nil, ipa: nil, praeteritum: nil, perfekt: nil,
+                                      translation: term, examples: [])
+                    finish(e)
+                    return
+                }
+
+                WiktionaryClient.fetch(de) { result in
+                    DispatchQueue.main.async {
+                        self.buildEntry(word: de, result: result, engine: engine) { entry in
+                            if let entry {
+                                finish(entry)
+                            } else {
+                                let e = WordEntry(lemma: de, kind: .other, gender: .none, posLabel: "",
+                                                  plural: nil, ipa: nil, praeteritum: nil, perfekt: nil,
+                                                  translation: term, examples: [])
+                                finish(e)
+                            }
+                        }
+                    }
                 }
             }
         }

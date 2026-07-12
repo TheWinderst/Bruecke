@@ -40,6 +40,16 @@ struct WordCardView: View {
         VStack(alignment: .leading, spacing: 0) {
             header
 
+            // Ters (TR→DE) aramada başlık Almanca kelimedir; hangi Türkçe soruya
+            // karşılık geldiğini bu ince satır hatırlatır.
+            if let q = entry.reverseQuery {
+                (Text("Türkçe ").foregroundStyle(.tertiary)
+                    + Text("“\(q)”").foregroundStyle(.secondary).fontWeight(.medium)
+                    + Text(" için Almanca karşılık").foregroundStyle(.tertiary))
+                    .font(.system(size: 12))
+                    .padding(.top, 6)
+            }
+
             if entry.kind != .phrase, !metaLine.isEmpty {
                 Text(metaLine).font(.system(size: 13)).foregroundStyle(.secondary).padding(.top, 6)
             }
@@ -50,6 +60,9 @@ struct WordCardView: View {
 
             if let p = entry.pattern { patternBox(p).padding(.top, 12) }
 
+            if let gAlts = entry.germanAlternates, !gAlts.isEmpty {
+                detailLine("Başka Almanca karşılıklar", gAlts.joined(separator: " · "))
+            }
             if settings.showEnglish, let en = entry.english, !en.isEmpty {
                 detailLine("İngilizce", en)
             }

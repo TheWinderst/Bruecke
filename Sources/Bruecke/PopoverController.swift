@@ -118,7 +118,7 @@ final class PopoverController {
     // Kelime seçmeden doğrudan yazıp çevirmek için klavye alan arama kutusu.
     // Kullanıcı Enter'a basınca onSubmit çağrılır; sonuç kartı gösterilince
     // (present → show) bu panel otomatik kapanır (show önce close() çağırır).
-    func showSearch(at screenPoint: NSPoint, onSubmit: @escaping (String) -> Void) {
+    func showSearch(at screenPoint: NSPoint, onSubmit: @escaping (String, LookupDirection) -> Void) {
         close()
 
         let root = DictionarySearchView(onSubmit: onSubmit)

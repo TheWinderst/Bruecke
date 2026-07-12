@@ -47,7 +47,16 @@ final class HistoryStore: ObservableObject {
     }
 
     func recent(_ limit: Int) -> [WordEntry] {
-        Array(items.prefix(limit).map(\.entry))
+        // Aynı kart iki anahtarla saklanmış olabilir (Türkçe sorgu + Almanca
+        // kelime); listede bir kez görünsün.
+        var seen = Set<String>()
+        var out: [WordEntry] = []
+        for item in items {
+            guard seen.insert(item.entry.id).inserted else { continue }
+            out.append(item.entry)
+            if out.count == limit { break }
+        }
+        return out
     }
 
     func clear() {

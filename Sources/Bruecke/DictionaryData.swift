@@ -52,6 +52,12 @@ struct WordEntry: Codable, Hashable, Identifiable {
     // Edat kalıbı (Verb mit Präposition) bilgisi; bu kelime bir kalıpsa dolu, değilse nil.
     var pattern: VerbPattern? = nil
 
+    // Türkçe → Almanca aramada kullanıcının sorduğu Türkçe kelime. Doluysa kart
+    // "Türkçe “...” için Almanca karşılık" satırını gösterir.
+    var reverseQuery: String? = nil
+    // Aynı Türkçe kelimenin diğer Almanca karşılıkları (warten, erwarten, hoffen...).
+    var germanAlternates: [String]? = nil
+
     // Eş sesli/eş yazımlı kelimeler (der/die See, das/der Band) çakışmasın diye
     // kimliği yalnızca lemma değil, tür+cinsiyetle birlikte belirleriz.
     var id: String { "\(lemma)|\(kind.rawValue)|\(gender.rawValue)" }

@@ -5,10 +5,13 @@ import AppKit
 // Menü çubuğundan ("Kelime yaz ve çevir…") ya da hiçbir şey seçili değilken
 // ⌘⇧D'ye basınca açılır. Kartla aynı cam yüzeyi ve native tipografiyi kullanır.
 struct DictionarySearchView: View {
-    let onSubmit: (String) -> Void
+    let onSubmit: (String, LookupDirection) -> Void
 
     @State private var text = ""
     @State private var loading = false
+    // Arama yönü; son seçim hatırlanır. Yazıda Türkçe/Almanca harf ipucu varsa
+    // DictionaryService yönü kendisi düzeltir, düğme yanlış kalsa bile sonuç doğrudur.
+    @State private var reversed = AppSettings.shared.searchReversed
     @FocusState private var focused: Bool
 
     // Panel boyutu açılışta bir kez ölçülür; liste o yüzden açılış anındaki
@@ -25,11 +28,21 @@ struct DictionarySearchView: View {
                     .font(.system(size: 15, weight: .semibold)).foregroundStyle(cBlue)
                 Text("Kelime çevir").font(.system(size: 15, weight: .semibold)).foregroundStyle(.primary)
                 Spacer(minLength: 0)
+                Picker("Yön", selection: $reversed) {
+                    Text("DE → TR").tag(false)
+                    Text("TR → DE").tag(true)
+                }
+                .pickerStyle(.segmented)
+                .controlSize(.small)
+                .fixedSize()
+                .labelsHidden()
+                .disabled(loading)
+                .onChange(of: reversed) { _, v in AppSettings.shared.searchReversed = v }
             }
 
             HStack(spacing: 8) {
                 Image(systemName: "magnifyingglass").font(.system(size: 14)).foregroundStyle(.secondary)
-                TextField("Almanca kelime ya da cümle…", text: $text)
+                TextField(reversed ? "Türkçe kelime…" : "Almanca kelime ya da cümle…", text: $text)
                     .textFieldStyle(.plain)
                     .font(.system(size: 17))
                     .focused($focused)
@@ -55,7 +68,8 @@ struct DictionarySearchView: View {
                         Button {
                             guard !loading else { return }
                             loading = true
-                            onSubmit(entry.lemma)
+                            // Geçmişteki kelime her zaman Almanca lemma ile durur.
+                            onSubmit(entry.lemma, .deToTr)
                         } label: {
                             HStack(spacing: 8) {
                                 Image(systemName: "clock.arrow.circlepath")
@@ -104,7 +118,7 @@ struct DictionarySearchView: View {
         let term = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !term.isEmpty, !loading else { return }
         loading = true          // sonuç kartı gelene kadar dönen gösterge
-        onSubmit(term)
+        onSubmit(term, reversed ? .trToDe : .deToTr)
     }
 }
 

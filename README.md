@@ -28,6 +28,8 @@ Kelime ve örnek cümleler Apple'ın Almanca seslendirmesiyle dinlenebilir; norm
 
 Elde metin seçili değilse de çeviri yapılabilir. Menü çubuğundaki **Kelime yaz ve çevir…** ile ya da hiçbir yer seçili değilken `⌘⇧D`'ye basınca küçük bir yazma kutusu açılır; kelime yazılıp Enter'a basıldığında aynı kart görünür. Bu yol Erişilebilirlik iznine ihtiyaç duymaz.
 
+**Türkçeden Almancaya da sorulabilir.** Yazma kutusundaki DE → TR / TR → DE düğmesiyle yön seçilir; Türkçe bir kelime yazıldığında Almanca karşılığı, artikeli, çoğulu ve örnek cümleleriyle tam kart olarak gelir. Kartta diğer olası Almanca karşılıklar da listelenir. Yön düğmesi yanlış kalsa bile sorun olmaz: ğ, ş, ı gibi harfler görülen kelime Türkçe, ß ve ä görülen kelime Almanca kabul edilir.
+
 Sağ tık menüsünde "Brücke'de çevir" servisi de bulunur.
 
 Arayüz native bileşenlerle kuruludur: macOS 26 Liquid Glass yüzeyleri ve sistemin kendi yazı tipleri kullanılır.
