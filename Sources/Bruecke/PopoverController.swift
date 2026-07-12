@@ -16,11 +16,23 @@ final class PopoverController {
     private var escGlobalMonitor: Any?
     private let speaker: Speaker
 
+    // Kullanıcı paneli kendisi kapattı (ESC / dışarı tıklama). AppDelegate bunu
+    // dinleyip bekleyen aramayı iptal eder — kapatılan kartın yerine sonradan
+    // sonuç kartı fırlamaz.
+    var onUserDismiss: (() -> Void)?
+
+    // Yükleme kartı → sonuç kartı geçişinde kart aynı noktada kalsın diye
+    // son panelin sol-üst köşesini hatırlarız.
+    private var storedAnchor: NSPoint?
+
     init(speaker: Speaker) {
         self.speaker = speaker
     }
 
-    func show(entry: WordEntry, at screenPoint: NSPoint) {
+    func show(entry: WordEntry, at screenPoint: NSPoint? = nil) {
+        // Yükleme kartının yerine geçiyorsak aynı noktada aç (anlık takas, titreme yok).
+        let replacing = panel != nil
+        let anchor = screenPoint ?? storedAnchor ?? NSEvent.mouseLocation
         close()
 
         let root = WordCardView(entry: entry, speaker: speaker)
@@ -51,11 +63,56 @@ final class PopoverController {
         panel.hasShadow = true
         panel.contentView = hosting
 
-        panel.setFrameOrigin(clamp(NSPoint(x: screenPoint.x, y: screenPoint.y - size.height), size: size))
+        panel.setFrameOrigin(clamp(NSPoint(x: anchor.x, y: anchor.y - size.height), size: size))
         panel.orderFrontRegardless()
         self.panel = panel
+        storedAnchor = anchor
 
+        if !replacing { fadeIn(panel) }
         installDismissMonitors()
+    }
+
+    // Sonuç beklenirken anında görünen küçük "çevriliyor" kartı — kullanıcı
+    // kısayola bastığı an bir şey olduğunu görür, ekran boş kalmaz.
+    func showLoading(term: String, at screenPoint: NSPoint? = nil) {
+        let anchor = screenPoint ?? storedAnchor ?? NSEvent.mouseLocation
+        close()
+
+        let root = LoadingCardView(term: term)
+        let hosting = NSHostingView(rootView: root)
+        hosting.layout()
+        let size = hosting.fittingSize
+
+        let panel = NSPanel(
+            contentRect: NSRect(origin: .zero, size: size),
+            styleMask: [.nonactivatingPanel, .borderless],
+            backing: .buffered,
+            defer: false
+        )
+        panel.isFloatingPanel = true
+        panel.level = .floating
+        panel.becomesKeyOnlyIfNeeded = true
+        panel.backgroundColor = .clear
+        panel.isOpaque = false
+        panel.hasShadow = true
+        panel.contentView = hosting
+
+        panel.setFrameOrigin(clamp(NSPoint(x: anchor.x, y: anchor.y - size.height), size: size))
+        panel.orderFrontRegardless()
+        self.panel = panel
+        storedAnchor = anchor
+
+        fadeIn(panel)
+        installDismissMonitors()
+    }
+
+    private func fadeIn(_ panel: NSPanel) {
+        panel.alphaValue = 0
+        NSAnimationContext.runAnimationGroup { ctx in
+            ctx.duration = 0.16
+            ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            panel.animator().alphaValue = 1
+        }
     }
 
     // Kelime seçmeden doğrudan yazıp çevirmek için klavye alan arama kutusu.
@@ -97,23 +154,32 @@ final class PopoverController {
         panel.makeKeyAndOrderFront(nil)
         panel.invalidateShadow()
         self.panel = panel
+        storedAnchor = NSPoint(x: panel.frame.minX, y: panel.frame.maxY)
 
+        fadeIn(panel)
         installDismissMonitors()
     }
 
     // Dışarı tıklama ve ESC ile kapatma izleyicileri (hem kart hem arama kutusu için).
     private func installDismissMonitors() {
         clickMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] _ in
-            self?.close()
+            self?.dismissByUser()
         }
         // ESC ile kapatma: panel anahtar olmayabileceği için hem yerel hem genel izleyici koy.
         escMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown]) { [weak self] event in
-            if event.keyCode == 53 { self?.close(); return nil }
+            if event.keyCode == 53 { self?.dismissByUser(); return nil }
             return event
         }
         escGlobalMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.keyDown]) { [weak self] event in
-            if event.keyCode == 53 { self?.close() }
+            if event.keyCode == 53 { self?.dismissByUser() }
         }
+    }
+
+    // Kullanıcının kendi kapatması: bekleyen arama da iptal edilsin, konum unutulsun.
+    private func dismissByUser() {
+        close()
+        storedAnchor = nil
+        onUserDismiss?()
     }
 
     private func clamp(_ origin: NSPoint, size: NSSize) -> NSPoint {

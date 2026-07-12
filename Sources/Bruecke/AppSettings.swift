@@ -20,6 +20,14 @@ final class AppSettings: ObservableObject {
     @Published var showAlternates: Bool { didSet { UserDefaults.standard.set(showAlternates, forKey: "showAlternates") } }
     @Published var showSynonyms: Bool { didSet { UserDefaults.standard.set(showSynonyms, forKey: "showSynonyms") } }
 
+    // Arama geçmişi + çevrimdışı önbellek (kapatılınca depo da boşaltılır).
+    @Published var keepHistory: Bool {
+        didSet {
+            UserDefaults.standard.set(keepHistory, forKey: "keepHistory")
+            if !keepHistory { HistoryStore.shared.clear() }
+        }
+    }
+
     @Published var translationEngine: TranslationEngine {
         didSet { UserDefaults.standard.set(translationEngine.rawValue, forKey: "translationEngine") }
     }
@@ -34,6 +42,7 @@ final class AppSettings: ObservableObject {
         showEnglish = b("showEnglish")
         showAlternates = b("showAlternates")
         showSynonyms = b("showSynonyms")
+        keepHistory = b("keepHistory")
         translationEngine = TranslationEngine(rawValue: d.string(forKey: "translationEngine") ?? "") ?? .google
         libreEndpoint = d.string(forKey: "libreEndpoint") ?? "https://libretranslate.com"
     }

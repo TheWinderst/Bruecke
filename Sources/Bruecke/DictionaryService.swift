@@ -18,12 +18,21 @@ final class DictionaryService {
         // Önce edat kalıbı mı diye bak (sich beschweren über, warten auf ...).
         // Kullanıcı tam kalıbı, sadece fiili ya da fiil+edatı seçmiş olabilir.
         if let p = PatternDictionary.lookup(term) {
+            HistoryStore.shared.record(term: term, entry: p)
             completion(p)
             return
         }
 
         if let hit = SampleDictionary.lookup(term) {
+            HistoryStore.shared.record(term: term, entry: hit)
             completion(hit)
+            return
+        }
+
+        // Daha önce bakıldıysa ağa hiç çıkma: anında ve çevrimdışı da çalışır.
+        if let cached = HistoryStore.shared.cached(term) {
+            HistoryStore.shared.record(term: term, entry: cached)   // geçmişte öne taşı
+            completion(cached)
             return
         }
 
@@ -42,6 +51,7 @@ final class DictionaryService {
                                        translationFailed: failed && main == nil)
                 e.kind = .phrase
                 e.posLabel = "cümle"
+                HistoryStore.shared.record(term: term, entry: e)
                 completion(e)
             }
             return
@@ -50,9 +60,18 @@ final class DictionaryService {
         let word = term.trimmingCharacters(in: CharacterSet.letters.inverted)
         guard !word.isEmpty else { completion(nil); return }
 
+        if let cached = HistoryStore.shared.cached(word) {
+            HistoryStore.shared.record(term: word, entry: cached)
+            completion(cached)
+            return
+        }
+
         WiktionaryClient.fetch(word) { result in
             DispatchQueue.main.async {
-                self.buildEntry(word: word, result: result, engine: engine, completion: completion)
+                self.buildEntry(word: word, result: result, engine: engine) { entry in
+                    if let entry { HistoryStore.shared.record(term: word, entry: entry) }
+                    completion(entry)
+                }
             }
         }
     }

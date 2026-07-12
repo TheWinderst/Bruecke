@@ -11,6 +11,11 @@ struct DictionarySearchView: View {
     @State private var loading = false
     @FocusState private var focused: Bool
 
+    // Panel boyutu açılışta bir kez ölçülür; liste o yüzden açılış anındaki
+    // geçmişle sabitlenir (panel ömrü boyunca değişmez, yerleşim kaymaz).
+    private let recents: [WordEntry] = AppSettings.shared.keepHistory
+        ? HistoryStore.shared.recent(5) : []
+
     private let cBlue = Color(red: 10/255, green: 132/255, blue: 1)
 
     var body: some View {
@@ -42,6 +47,35 @@ struct DictionarySearchView: View {
             .padding(.horizontal, 12).padding(.vertical, 10)
             .background(.quaternary, in: RoundedRectangle(cornerRadius: 10))
 
+            if !recents.isEmpty {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Son aramalar").font(.system(size: 11)).foregroundStyle(.tertiary)
+                        .padding(.top, 2)
+                    ForEach(recents, id: \.id) { entry in
+                        Button {
+                            guard !loading else { return }
+                            loading = true
+                            onSubmit(entry.lemma)
+                        } label: {
+                            HStack(spacing: 8) {
+                                Image(systemName: "clock.arrow.circlepath")
+                                    .font(.system(size: 11)).foregroundStyle(.tertiary)
+                                Text(entry.displayHeadword)
+                                    .font(.system(size: 13, weight: .medium)).foregroundStyle(.primary)
+                                    .lineLimit(1)
+                                Text(entry.translation)
+                                    .font(.system(size: 12)).foregroundStyle(.secondary)
+                                    .lineLimit(1)
+                                Spacer(minLength: 0)
+                            }
+                            .padding(.horizontal, 8).padding(.vertical, 5)
+                            .contentShape(RoundedRectangle(cornerRadius: 7))
+                        }
+                        .buttonStyle(RecentRowStyle())
+                    }
+                }
+            }
+
             HStack(spacing: 8) {
                 Text("Enter ile çevir · Esc ile kapat").font(.system(size: 11)).foregroundStyle(.tertiary)
                 Spacer(minLength: 0)
@@ -71,5 +105,42 @@ struct DictionarySearchView: View {
         guard !term.isEmpty, !loading else { return }
         loading = true          // sonuç kartı gelene kadar dönen gösterge
         onSubmit(term)
+    }
+}
+
+// Son arama satırı: üzerine gelince hafifçe belirginleşir.
+private struct RecentRowStyle: ButtonStyle {
+    @State private var hovering = false
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .background(
+                RoundedRectangle(cornerRadius: 7)
+                    .fill(Color.primary.opacity(configuration.isPressed ? 0.12 : (hovering ? 0.06 : 0)))
+            )
+            .onHover { hovering = $0 }
+    }
+}
+
+// Kısayola basılır basılmaz beliren küçük "çevriliyor" kartı.
+// Sonuç gelince aynı noktada asıl kartla değiştirilir.
+struct LoadingCardView: View {
+    let term: String
+
+    var body: some View {
+        HStack(spacing: 12) {
+            ProgressView().controlSize(.small)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(term)
+                    .font(.system(size: 16, weight: .semibold)).foregroundStyle(.primary)
+                    .lineLimit(1)
+                Text("Çevriliyor…")
+                    .font(.system(size: 12)).foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 16).padding(.vertical, 14)
+        .frame(width: 260, alignment: .leading)
+        .modifier(GlassCardBG())
     }
 }

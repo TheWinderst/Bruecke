@@ -16,7 +16,15 @@ Bir kelime seçilip kart açıldığında şunlar görünür:
 - **Diğer anlamlar** ve **Almanca eş anlamlılar.**
 - **İki örnek cümle**, Türkçe çevirisiyle birlikte.
 
-Kelime ve örnek cümleler Apple'ın Almanca seslendirmesiyle dinlenebilir; normal hız, yavaş veya hece hece seçenekleri vardır. Mikrofona söylenen telaffuz için puan alınabilir. Kaydedilen kelimeler ayrı bir pencerede toplanır ve sonradan tekrar edilebilir.
+Kelime ve örnek cümleler Apple'ın Almanca seslendirmesiyle dinlenebilir; normal hız, yavaş veya hece hece seçenekleri vardır. Mikrofona söylenen telaffuz için puan alınabilir.
+
+## Öğrenme ve hız
+
+- **Kelime tekrarı.** Kaydedilen kelimeler çevir-kapat kartlarla çalışılır: Almanca yüzü görünür, kart çevrilince Türkçesi ve örnek cümlesi açılır. Bilinen kart turdan düşer, bilinmeyen tura geri döner; tur bitince özet gösterilir.
+- **Arama geçmişi.** Daha önce bakılan kelimeler kaybolmaz; yazma kutusunda son aramalar tek tıkla yeniden açılır.
+- **Çevrimdışı önbellek.** Bir kez bakılan kelime bu Mac'te saklanır: ikinci bakış ağa çıkmadan anında açılır ve internet yokken de çalışır. Ayarlar bölümünden kapatılabilir veya temizlenebilir.
+- **Anki'ye aktarma.** Kayıtlı kelimeler tek tıkla CSV dosyasına yazılır; Anki ve benzeri programlara doğrudan alınabilir.
+- Arama yapılırken kart yerine küçük bir "çevriliyor" göstergesi anında belirir; sonuç gelince aynı noktada karta dönüşür.
 
 Elde metin seçili değilse de çeviri yapılabilir. Menü çubuğundaki **Kelime yaz ve çevir…** ile ya da hiçbir yer seçili değilken `⌘⇧D`'ye basınca küçük bir yazma kutusu açılır; kelime yazılıp Enter'a basıldığında aynı kart görünür. Bu yol Erişilebilirlik iznine ihtiyaç duymaz.
 

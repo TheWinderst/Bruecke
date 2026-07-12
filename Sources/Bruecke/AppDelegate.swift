@@ -24,6 +24,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         hotKey = HotKey(keyCode: 2, modifiers: UInt32(cmdKey | shiftKey)) { [weak self] in
             self?.triggerLookup()
         }
+        // Kullanıcı bekleme kartını ESC/dış tıklama ile kapatırsa bekleyen arama
+        // iptal olsun — sonradan sonuç kartı kendiliğinden fırlamasın.
+        popover.onUserDismiss = { [weak self] in
+            self?.lookupGeneration += 1
+        }
         NSApp.servicesProvider = self
         promptForAccessibilityIfNeeded()
     }
@@ -39,6 +44,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(withTitle: "Seçili kelimeyi çevir  (⌘⇧D)", action: #selector(triggerLookup), keyEquivalent: "")
         menu.addItem(withTitle: "Kelime yaz ve çevir…", action: #selector(openSearch), keyEquivalent: "")
         menu.addItem(withTitle: "Kaydedilen kelimeler…", action: #selector(showSaved), keyEquivalent: "")
+        menu.addItem(withTitle: "Kelime tekrarı…", action: #selector(showReview), keyEquivalent: "")
         menu.addItem(withTitle: "Ayarlar…", action: #selector(showSettings), keyEquivalent: ",")
         menu.addItem(.separator())
         menu.addItem(withTitle: "Örnek kart: der Apfel", action: #selector(showSample), keyEquivalent: "")
@@ -60,7 +66,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 self.presentSearch()
                 return
             }
-            self.lookupAndShow(clean, gen: gen)
+            self.lookupAndShow(clean, gen: gen, at: NSEvent.mouseLocation)
         }
     }
 
@@ -74,7 +80,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         popover.showSearch(at: NSEvent.mouseLocation) { [weak self] term in
             guard let self else { return }
             self.lookupGeneration += 1
-            self.lookupAndShow(term, gen: self.lookupGeneration)
+            // Çapa vermiyoruz: sonuç kartı arama kutusunun olduğu noktada açılır.
+            self.lookupAndShow(term, gen: self.lookupGeneration, at: nil)
         }
     }
 
@@ -82,36 +89,53 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let clean = (pboard.string(forType: .string) ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         guard !clean.isEmpty else { return }
         lookupGeneration += 1
-        lookupAndShow(clean, gen: lookupGeneration)
+        lookupAndShow(clean, gen: lookupGeneration, at: NSEvent.mouseLocation)
     }
 
-    private func lookupAndShow(_ term: String, gen: Int) {
+    private func lookupAndShow(_ term: String, gen: Int, at anchor: NSPoint?) {
+        // Sonuç anında (önbellek/örnek sözlük) gelirse yükleme kartını hiç
+        // göstermeyiz — kart bir karelik parlayıp sönmesin. Yükleme kartı
+        // gösterildiyse sonuç kartı aynı noktada onun yerini alır.
+        var completed = false
+        var showedLoading = false
         dictionary.lookup(term) { [weak self] entry in
-            guard let self, gen == self.lookupGeneration else { return }
-            if let entry {
-                self.present(entry)
-            } else {
-                self.present(self.cannotTranslateEntry)
-            }
+            guard let self else { return }
+            completed = true
+            guard gen == self.lookupGeneration else { return }
+            self.present(entry ?? self.cannotTranslateEntry, at: showedLoading ? nil : anchor)
+        }
+        if !completed {
+            showedLoading = true
+            popover.showLoading(term: term, at: anchor)
         }
     }
 
     @objc private func showSample() {
         guard let entry = SampleDictionary.lookup("apfel") else { return }
-        present(entry)
+        present(entry, at: NSEvent.mouseLocation)
     }
 
     @objc private func showSaved() {
+        presentSavedWindow(mode: .list)
+    }
+
+    @objc private func showReview() {
+        presentSavedWindow(mode: .review)
+    }
+
+    private func presentSavedWindow(mode: SavedViewMode) {
         if savedWindow == nil {
-            let view = SavedWordsView(onSelect: { [weak self] entry in self?.present(entry) })
+            let view = SavedWordsView(speaker: speaker,
+                                      onSelect: { [weak self] entry in self?.present(entry, at: NSEvent.mouseLocation) })
             let window = NSWindow(contentViewController: NSHostingController(rootView: view))
-            window.title = "Kaydedilen Kelimeler"
+            window.title = "Kelimelerim"
             window.styleMask = [.titled, .closable, .miniaturizable]
-            window.setContentSize(NSSize(width: 360, height: 460))
+            window.setContentSize(NSSize(width: 380, height: 480))
             window.isReleasedWhenClosed = false
             window.center()
             savedWindow = window
         }
+        SavedViewState.shared.mode = mode
         bringToFront(savedWindow)
     }
 
@@ -142,8 +166,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         )
     }
 
-    private func present(_ entry: WordEntry) {
-        popover.show(entry: entry, at: NSEvent.mouseLocation)
+    private func present(_ entry: WordEntry, at anchor: NSPoint?) {
+        popover.show(entry: entry, at: anchor)
     }
 
     @objc private func showAbout() {
