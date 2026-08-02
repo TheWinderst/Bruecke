@@ -58,6 +58,10 @@ struct WordEntry: Codable, Hashable, Identifiable {
     // Aynı Türkçe kelimenin diğer Almanca karşılıkları (warten, erwarten, hoffen...).
     var germanAlternates: [String]? = nil
 
+    // Uzun metin çevirilerinde kart, çeviri kutusunu küçük bir sözlük kartı yerine
+    // okunabilir bir metin bloğu olarak boyar.
+    var isLongText: Bool { kind == .phrase && translation.count > 160 }
+
     // Eş sesli/eş yazımlı kelimeler (der/die See, das/der Band) çakışmasın diye
     // kimliği yalnızca lemma değil, tür+cinsiyetle birlikte belirleriz.
     var id: String { "\(lemma)|\(kind.rawValue)|\(gender.rawValue)" }

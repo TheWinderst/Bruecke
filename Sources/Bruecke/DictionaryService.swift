@@ -29,53 +29,92 @@ final class DictionaryService {
         }
     }
 
+    // Hedef dil (Türkçe ya da English) ve ona bağlı önbellek anahtarı öneki:
+    // aynı Almanca kelimenin iki dildeki kartı ayrı saklanır ki dil değişince
+    // eski dildeki kart gelmesin.
+    private var targetLang: String { AppSettings.shared.translationLanguage.code }
+    private var cachePrefix: String { targetLang == "tr" ? "" : "de→en|" }
+
     func lookup(_ raw: String, direction: LookupDirection = .auto, completion: @escaping (WordEntry?) -> Void) {
         let term = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !term.isEmpty else { completion(nil); return }
 
-        if resolve(direction, term: term) == .trToDe {
+        // Türkçe hedef dilken harf ipucu olan ters arama; English seçiliyse TR
+        // dili kapalı, metin her zaman Almanca sayılır (DE→EN).
+        if targetLang == "tr", resolve(direction, term: term) == .trToDe {
             reverseLookup(term, completion: completion)
             return
         }
 
+        let tl = targetLang
+        let cacheKey = cachePrefix + HistoryStore.normalize(term)
+
         // Önce edat kalıbı mı diye bak (sich beschweren über, warten auf ...).
         // Kullanıcı tam kalıbı, sadece fiili ya da fiil+edatı seçmiş olabilir.
-        if let p = PatternDictionary.lookup(term) {
-            HistoryStore.shared.record(term: term, entry: p)
+        // (Yerleşik kalıplar Türkçe anlamlıdır; English modunda atlanır.)
+        if tl == "tr", let p = PatternDictionary.lookup(term) {
+            HistoryStore.shared.record(term: cacheKey, entry: p)
             completion(p)
             return
         }
 
-        if let hit = SampleDictionary.lookup(term) {
-            HistoryStore.shared.record(term: term, entry: hit)
+        if tl == "tr", let hit = SampleDictionary.lookup(term) {
+            HistoryStore.shared.record(term: cacheKey, entry: hit)
             completion(hit)
             return
         }
 
         // Daha önce bakıldıysa ağa hiç çıkma: anında ve çevrimdışı da çalışır.
-        if let cached = HistoryStore.shared.cached(term) {
-            HistoryStore.shared.record(term: term, entry: cached)   // geçmişte öne taşı
+        if let cached = HistoryStore.shared.cached(cacheKey) {
+            HistoryStore.shared.record(term: cacheKey, entry: cached)   // geçmişte öne taşı
             completion(cached)
             return
         }
 
         let engine = self.engine
 
-        if term.contains(" ") {
+        // Google ucunun çevirebildiği pratik uzunluğun üstündeki metni cümle
+        // sınırlarından parçalara bölüp sırayla çevirir (uzun paragraf desteği).
+        if term.count > 1500 {
+            let parts = Self.splitForTranslation(term)
+            var translated = [String?](repeating: nil, count: parts.count)
+            var anyFailed = false
             let group = DispatchGroup()
-            var main: String?
-            var english: String?
-            var failed = false
-            group.enter(); TranslateClient.word(term, to: "tr", engine: engine) { m, _, f in main = m; if f { failed = true }; group.leave() }
-            group.enter(); TranslateClient.simple(term, to: "en", engine: engine) { e, _ in english = e; group.leave() }
+            for (i, part) in parts.enumerated() {
+                group.enter()
+                TranslateClient.simple(part, to: tl, engine: engine) { t, failed in
+                    translated[i] = t; if failed { anyFailed = true }
+                    group.leave()
+                }
+            }
             group.notify(queue: .main) {
-                var e = self.makeEntry(word: term, result: nil, translation: main ?? "—",
-                                       alternates: [], english: english, synonyms: [], examples: [],
-                                       translationFailed: failed && main == nil)
+                let joined = translated.map { $0 ?? "" }.joined(separator: " ")
+                var e = self.makeEntry(word: term, result: nil,
+                                       translation: joined.isEmpty ? "—" : joined,
+                                       alternates: [], english: nil, synonyms: [], examples: [],
+                                       translationFailed: joined.isEmpty && anyFailed)
                 e.kind = .phrase
-                e.posLabel = "cümle"
-                HistoryStore.shared.record(term: term, entry: e)
+                e.posLabel = "metin"
+                HistoryStore.shared.record(term: cacheKey, entry: e)
                 completion(e)
+            }
+            return
+        }
+
+        if term.contains(" ") {
+            // Uzun metin: tek çeviri yeterli; ağ yükünü ve bekleme süresini azaltır.
+            // (Daha önce İngilizce referans çevirisi de çekiliyordu, kart onu zaten
+            // ayrı satırda göstermediği için kaldırıldı.)
+            TranslateClient.word(term, to: tl, engine: engine) { main, _, failed in
+                DispatchQueue.main.async {
+                    var e = self.makeEntry(word: term, result: nil, translation: main ?? "—",
+                                           alternates: [], english: nil, synonyms: [], examples: [],
+                                           translationFailed: failed && main == nil)
+                    e.kind = .phrase
+                    e.posLabel = term.count > 160 ? "metin" : "cümle"
+                    HistoryStore.shared.record(term: cacheKey, entry: e)
+                    completion(e)
+                }
             }
             return
         }
@@ -83,8 +122,9 @@ final class DictionaryService {
         let word = term.trimmingCharacters(in: CharacterSet.letters.inverted)
         guard !word.isEmpty else { completion(nil); return }
 
-        if let cached = HistoryStore.shared.cached(word) {
-            HistoryStore.shared.record(term: word, entry: cached)
+        let wordKey = cachePrefix + HistoryStore.normalize(word)
+        if let cached = HistoryStore.shared.cached(wordKey) {
+            HistoryStore.shared.record(term: wordKey, entry: cached)
             completion(cached)
             return
         }
@@ -92,7 +132,7 @@ final class DictionaryService {
         WiktionaryClient.fetch(word) { result in
             DispatchQueue.main.async {
                 self.buildEntry(word: word, result: result, engine: engine) { entry in
-                    if let entry { HistoryStore.shared.record(term: word, entry: entry) }
+                    if let entry { HistoryStore.shared.record(term: wordKey, entry: entry) }
                     completion(entry)
                 }
             }
@@ -124,9 +164,7 @@ final class DictionaryService {
                                       plural: nil, ipa: nil, praeteritum: nil, perfekt: nil,
                                       translation: "—", examples: [])
                     e.reverseQuery = term
-                    e.errorMessage = failed
-                        ? "Çeviri alınamadı — internet bağlantını kontrol et."
-                        : "Almanca karşılık bulunamadı."
+                    e.errorMessage = failed ? self.translateErrorMessage : "Almanca karşılık bulunamadı."
                     completion(e)
                     return
                 }
@@ -153,13 +191,13 @@ final class DictionaryService {
                     // İki anahtarla kaydet: Türkçe sorgu (tekrarında anında açılır)
                     // ve Almanca kelime (son aramalardan tıklanınca anında açılır).
                     HistoryStore.shared.record(term: cacheKey, entry: e)
-                    HistoryStore.shared.record(term: de, entry: e)
+                    HistoryStore.shared.record(term: self.cachePrefix + HistoryStore.normalize(de), entry: e)
                     completion(e)
                 }
 
                 if let p = PatternDictionary.lookup(de) { finish(p); return }
                 if let hit = SampleDictionary.lookup(de) { finish(hit); return }
-                if let cached = HistoryStore.shared.cached(de) { finish(cached); return }
+                if let cached = HistoryStore.shared.cached(self.cachePrefix + HistoryStore.normalize(de)) { finish(cached); return }
 
                 // Çok kelimeli karşılık (sich freuen, zu Hause ...): Wiktionary'de
                 // tek başlık yok; sade bir ifade kartı yeterli.
@@ -201,20 +239,28 @@ final class DictionaryService {
         var synonyms: [String] = []
         var tatoebaEx: [Example] = []
         var translationFailed = false
+        let tl = targetLang
         let wiktDE = wikResult?.examplesDE ?? []
         var wiktExTR = [String?](repeating: nil, count: wiktDE.count)
 
-        group.enter(); TranslateClient.word(word, to: "tr", engine: engine) { m, a, f in
+        group.enter(); TranslateClient.word(word, to: tl, engine: engine) { m, a, f in
             wordTR = m; alternates = a; if f { translationFailed = true }; group.leave()
         }
-        group.enter(); TranslateClient.simple(word, to: "en", engine: engine) { e, _ in english = e; group.leave() }
+        // Hedef dil Türkçe'yken İngilizce referans da çekilir; English modunda ana
+        // çeviri zaten İngilizce olduğundan ikinci çağrı gereksizdir.
+        if tl == "tr" {
+            group.enter(); TranslateClient.simple(word, to: "en", engine: engine) { e, _ in english = e; group.leave()
+            }
+        }
         group.enter(); SynonymClient.synonyms(word) { synonyms = $0; group.leave() }
 
         if wiktDE.isEmpty {
-            group.enter(); TatoebaClient.examples(word) { tatoebaEx = $0; group.leave() }
+            if tl == "tr" {   // Tatoeba örnekleri Türkçe çevirilidir
+                group.enter(); TatoebaClient.examples(word) { tatoebaEx = $0; group.leave() }
+            }
         } else {
             for (i, de) in wiktDE.enumerated() {
-                group.enter(); TranslateClient.simple(de, to: "tr", engine: engine) { tr, _ in wiktExTR[i] = tr; group.leave() }
+                group.enter(); TranslateClient.simple(de, to: tl, engine: engine) { tr, _ in wiktExTR[i] = tr; group.leave() }
             }
         }
 
@@ -231,6 +277,34 @@ final class DictionaryService {
                                       alternates: alternates, english: english, synonyms: synonyms, examples: examples,
                                       translationFailed: translationFailed && wordTR == nil))
         }
+    }
+
+    // "Çeviri alınamadı" mesajı hedef dile göre.
+    private var translateErrorMessage: String {
+        targetLang == "tr"
+            ? "Çeviri alınamadı — internet bağlantını kontrol et."
+            : "Translation failed — check your internet connection."
+    }
+
+    // Uzun metni cümle sonlarından (~) eşit parçalara böler; hiçbir parça limiti aşmaz.
+    // Cümle sınırı bulunamazsa son boşluktan, o da yoksa sert kesimden böler.
+    static func splitForTranslation(_ text: String, limit: Int = 1200) -> [String] {
+        if text.count <= limit { return [text] }
+        var parts: [String] = []
+        var rest = Substring(text)
+        while rest.count > limit {
+            let window = rest.prefix(limit)
+            var cut = window.lastIndex(where: { ".!?…".contains($0) }).map { rest.index(after: $0) }
+            if cut == nil || cut! <= rest.startIndex {
+                cut = window.lastIndex(where: { $0 == " " || $0 == "\n" })
+            }
+            let at = cut ?? window.endIndex
+            let piece = rest[..<at].trimmingCharacters(in: .whitespacesAndNewlines)
+            if !piece.isEmpty { parts.append(piece) }
+            rest = rest[at...].drop(while: { $0 == " " || $0 == "\n" })
+        }
+        if !rest.isEmpty { parts.append(String(rest)) }
+        return parts
     }
 
     private func makeEntry(word: String, result: WiktionaryResult?, translation: String,
@@ -280,7 +354,7 @@ final class DictionaryService {
                               english: english,
                               synonyms: synonyms.isEmpty ? nil : synonyms)
         if translationFailed {
-            entry.errorMessage = "Çeviri alınamadı — internet bağlantını kontrol et."
+            entry.errorMessage = translateErrorMessage
         }
         return entry
     }

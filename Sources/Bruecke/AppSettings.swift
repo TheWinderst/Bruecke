@@ -1,4 +1,5 @@
 import Foundation
+import Carbon.HIToolbox
 
 enum TranslationEngine: String, CaseIterable, Identifiable {
     case google      // Google'ın ücretsiz/halka açık ucu (en iyi kalite, varsayılan)
@@ -10,6 +11,16 @@ enum TranslationEngine: String, CaseIterable, Identifiable {
         case .libre:  return "LibreTranslate (açık kaynak)"
         }
     }
+}
+
+// Almancadan hangi dile çevrileceği. Türkçe, uygulamanın ana dilidir: TR→DE ters
+// arama ve bütün yerleşik içerik (örnek kelimeler, edat kalıpları) Türkçedir.
+// English seçilirse DE→EN çift diliyle çalışılır.
+enum TranslationLanguage: String, CaseIterable, Identifiable {
+    case turkish, english
+    var id: String { rawValue }
+    var code: String { self == .turkish ? "tr" : "en" }
+    var label: String { self == .turkish ? "Türkçe" : "English" }
 }
 
 @MainActor
@@ -41,6 +52,18 @@ final class AppSettings: ObservableObject {
     @Published var libreEndpoint: String {
         didSet { UserDefaults.standard.set(libreEndpoint, forKey: "libreEndpoint") }
     }
+    // Çeviri dili: Almanca → Türkçe (varsayılan) ya da English.
+    @Published var translationLanguage: TranslationLanguage {
+        didSet { UserDefaults.standard.set(translationLanguage.rawValue, forKey: "translationLanguage") }
+    }
+
+    // Kısayol: sanal tuş kodu + Carbon değiştirici bayrakları (⌘⇧D varsayılan).
+    @Published var hotKeyKeyCode: Int {
+        didSet { UserDefaults.standard.set(hotKeyKeyCode, forKey: "hotKeyKeyCode") }
+    }
+    @Published var hotKeyModifiers: Int {
+        didSet { UserDefaults.standard.set(hotKeyModifiers, forKey: "hotKeyModifiers") }
+    }
 
     init() {
         let d = UserDefaults.standard
@@ -52,5 +75,9 @@ final class AppSettings: ObservableObject {
         searchReversed = d.bool(forKey: "searchReversed")
         translationEngine = TranslationEngine(rawValue: d.string(forKey: "translationEngine") ?? "") ?? .google
         libreEndpoint = d.string(forKey: "libreEndpoint") ?? "https://libretranslate.com"
+        translationLanguage = TranslationLanguage(rawValue: d.string(forKey: "translationLanguage") ?? "") ?? .turkish
+        hotKeyKeyCode = d.object(forKey: "hotKeyKeyCode") == nil ? 2 : d.integer(forKey: "hotKeyKeyCode")
+        hotKeyModifiers = d.object(forKey: "hotKeyModifiers") == nil
+            ? Int(cmdKey | shiftKey) : d.integer(forKey: "hotKeyModifiers")
     }
 }

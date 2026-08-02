@@ -15,20 +15,35 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     // Yalnızca en yeni aramanın kartı boyaması için artan kuşak sayacı (hızlı ardışık aramalar yarışmasın).
     private var lookupGeneration = 0
+    // Kart içi gezinme belleği: diğer anlamlar/eş anlamlılar arasında atlanınca
+    // geri oku bir önceki karta döner. Yeni bir "dışarıdan" arama (kısayol, servis,
+    // yazma kutusu) belleği sıfırlar.
+    private var cardMemory: [(entry: WordEntry, anchor: NSPoint?)] = []
+
+    private var hotKeyDescription: String {
+        HotKey.displayString(keyCode: AppSettings.shared.hotKeyKeyCode,
+                             modifiers: AppSettings.shared.hotKeyModifiers)
+    }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         alogReset()
         alog("launched. accessibility trusted=\(AXIsProcessTrusted())")
 
         setUpStatusItem()
-        hotKey = HotKey(keyCode: 2, modifiers: UInt32(cmdKey | shiftKey)) { [weak self] in
+        let s = AppSettings.shared
+        hotKey = HotKey(keyCode: UInt32(s.hotKeyKeyCode), modifiers: UInt32(s.hotKeyModifiers)) { [weak self] in
             self?.triggerLookup()
         }
         // Kullanıcı bekleme kartını ESC/dış tıklama ile kapatırsa bekleyen arama
         // iptal olsun — sonradan sonuç kartı kendiliğinden fırlamasın.
         popover.onUserDismiss = { [weak self] in
             self?.lookupGeneration += 1
+            self?.cardMemory.removeAll()
         }
+        // Kartın içindeki kelimeye tıklayınca o kelimenin kartı açılır; mevcut
+        // kart belleğe alınır ki geri dönülebilsin.
+        popover.onNavigate = { [weak self] word in self?.navigate(to: word) }
+        popover.onBack = { [weak self] in self?.navigateBack() }
         NSApp.servicesProvider = self
         promptForAccessibilityIfNeeded()
     }
@@ -41,17 +56,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         let menu = NSMenu()
-        menu.addItem(withTitle: "Seçili kelimeyi çevir  (⌘⇧D)", action: #selector(triggerLookup), keyEquivalent: "")
+        menu.addItem(withTitle: "Seçili kelimeyi çevir  (\(hotKeyDescription))", action: #selector(triggerLookup), keyEquivalent: "")
         menu.addItem(withTitle: "Kelime yaz ve çevir…", action: #selector(openSearch), keyEquivalent: "")
         menu.addItem(withTitle: "Kaydedilen kelimeler…", action: #selector(showSaved), keyEquivalent: "")
         menu.addItem(withTitle: "Kelime tekrarı…", action: #selector(showReview), keyEquivalent: "")
         menu.addItem(withTitle: "Ayarlar…", action: #selector(showSettings), keyEquivalent: ",")
+        if hotKey?.registered == false {
+            let warn = NSMenuItem(title: "Kısayol kaydedilemedi — Ayarlar'dan yenisini seç", action: #selector(showSettings), keyEquivalent: "")
+            menu.addItem(warn)
+        }
         menu.addItem(.separator())
         menu.addItem(withTitle: "Örnek kart: der Apfel", action: #selector(showSample), keyEquivalent: "")
         menu.addItem(withTitle: "Brücke hakkında", action: #selector(showAbout), keyEquivalent: "")
         menu.addItem(withTitle: "Çıkış", action: #selector(quit), keyEquivalent: "q")
         for item in menu.items { item.target = self }
         statusItem.menu = menu
+    }
+
+    // Ayarlar penceresi kısayolu değiştirdiğinde: yeni bileşimi kaydet ve menüyü tazele.
+    func applyHotKeyChange() {
+        let s = AppSettings.shared
+        hotKey?.update(keyCode: UInt32(s.hotKeyKeyCode), modifiers: UInt32(s.hotKeyModifiers))
+        statusItem.menu?.items.first?.title = "Seçili kelimeyi çevir  (\(hotKeyDescription))"
+        if hotKey?.registered == false {
+            statusItem.menu?.items.first?.title += "  (kayıt başarısız)"
+        }
     }
 
     @objc private func triggerLookup() {
@@ -110,6 +139,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    // Kart içinden başka kelimeye atlama: mevcut kartı belleğe alıp yeni arama başlatır.
+    private func navigate(to word: String) {
+        let clean = word.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !clean.isEmpty else { return }
+        if let current = popover.currentEntry, cardMemory.count < 10 {
+            cardMemory.append((current, nil))
+        }
+        lookupGeneration += 1
+        lookupAndShow(clean, gen: lookupGeneration, at: nil)
+    }
+
+    private func navigateBack() {
+        guard let last = cardMemory.popLast() else { return }
+        lookupGeneration += 1   // uçuşta olan arama varsa sonucunu geçersiz kıl
+        present(last.entry, at: last.anchor)
+    }
+
     @objc private func showSample() {
         guard let entry = SampleDictionary.lookup("apfel") else { return }
         present(entry, at: NSEvent.mouseLocation)
@@ -157,17 +203,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private var cannotTranslateEntry: WordEntry {
-        WordEntry(
-            lemma: "Çeviremedim",
+        let msg = AppSettings.shared.translationLanguage == .turkish
+            ? "Bir Almanca kelime seçip \(hotKeyDescription) kısayoluna bas. (Bağlantı yoksa onu da kontrol et.)"
+            : "Select a German word and press \(hotKeyDescription). (Check your connection too.)"
+        return WordEntry(
+            lemma: AppSettings.shared.translationLanguage == .turkish ? "Çeviremedim" : "Couldn't translate",
             kind: .other, gender: .none, posLabel: "",
             plural: nil, ipa: nil, praeteritum: nil, perfekt: nil,
-            translation: "Bir Almanca kelime seçip ⌘⇧D'ye bas. (Bağlantı yoksa onu da kontrol et.)",
+            translation: msg,
             examples: []
         )
     }
 
     private func present(_ entry: WordEntry, at anchor: NSPoint?) {
-        popover.show(entry: entry, at: anchor)
+        popover.show(entry: entry, at: anchor, canGoBack: !cardMemory.isEmpty)
     }
 
     @objc private func showAbout() {
@@ -175,7 +224,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let alert = NSAlert()
         alert.messageText = "Brücke"
         alert.informativeText = """
-        Almanca–Türkçe sözlük. Bir kelime seç ve ⌘⇧D'ye bas.
+        Almanca–Türkçe sözlük. Bir kelime seç ve \(hotKeyDescription) kısayoluna bas.
 
         Kaynaklar: Wiktionary (CC BY-SA), Tatoeba (CC BY), OpenThesaurus (CC BY-SA), \
         çeviri Google (resmî olmayan) / LibreTranslate.

@@ -21,6 +21,16 @@ struct SavedWordsView: View {
 
     @ObservedObject var store = SavedStore.shared
     @ObservedObject private var state = SavedViewState.shared
+    @State private var filter = ""
+
+    // Liste üstündeki arama alanına göre süzülmüş kelimeler (başlık ya da anlam eşleşir).
+    private var visibleEntries: [WordEntry] {
+        let q = filter.trimmingCharacters(in: .whitespaces).lowercased()
+        guard !q.isEmpty else { return store.entries }
+        return store.entries.filter {
+            $0.displayHeadword.lowercased().contains(q) || $0.translation.lowercased().contains(q)
+        }
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -102,7 +112,19 @@ struct SavedWordsView: View {
             .padding(30)
         } else {
             List {
-                ForEach(store.entries) { entry in
+                HStack(spacing: 6) {
+                    Image(systemName: "magnifyingglass").font(.system(size: 12)).foregroundStyle(.tertiary)
+                    TextField("Ara…", text: $filter)
+                        .textFieldStyle(.plain)
+                        .font(.system(size: 13))
+                    if !filter.isEmpty {
+                        Button { filter = "" } label: {
+                            Image(systemName: "xmark.circle.fill").font(.system(size: 12)).foregroundStyle(.tertiary)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                ForEach(visibleEntries) { entry in
                     Button { onSelect(entry) } label: {
                         HStack(spacing: 10) {
                             VStack(alignment: .leading, spacing: 2) {
@@ -121,7 +143,7 @@ struct SavedWordsView: View {
                     }
                 }
                 .onDelete { offsets in
-                    offsets.map { store.entries[$0] }.forEach { store.remove($0) }
+                    offsets.map { visibleEntries[$0] }.forEach { store.remove($0) }
                 }
             }
         }

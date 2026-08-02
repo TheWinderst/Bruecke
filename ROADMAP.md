@@ -74,11 +74,35 @@ Mimari/Ürün) toplam **37 ajan** ile kodu taradı; her hata bulgusu ayrıca ba�
 
 ---
 
+## ✅ Sürüm 1.5 — Gezinme, uzun metin ve İngilizce (tamamlandı)
+
+- **Kart içi gezinme ✔** — Diğer anlamlar, eş anlamlılar ve alternatif karşılıklar
+  artık tıklanabilir kelime hapları: dokununca o kelimenin kartı açılır, kartın
+  sol üstündeki geri okuyla önceki karta dönülür (10 kartlık bellek).
+- **Uzun metin çevirisi ✔** — Paragraf/sayfa seçilip aynı kısayolla çevrilir;
+  metin cümle sınırlarından ~1200 karakterlik parçalara bölünüp sırayla çevrilir.
+  Kart okunabilir gövde yazısıyla kaynak + çeviriyi birlikte gösterir, metin
+  seçilip kopyalanabilir. Yazma kutusu da çok satırlı metin kabul eder.
+- **İngilizce desteği ✔** — Ayarlar → Çeviri dili: Türkçe (varsayılan) ya da
+  English. English modunda kartlar DE→EN çevrilir; iki dilin kartları önbellekte
+  ayrı anahtarlarla tutulur. TR→DE ters arama ve edat kalıpları Türkçe moduna özeldir.
+- **Özelleştirilebilir kısayol ✔ (P9)** — Ayarlar → Kısayol: "Değiştir…"e basıp
+  yeni bileşime basılır, anında etkinleşir ve menü etiketi güncellenir. Kayıt
+  başarısız olursa (başka uygulama kapmışsa) menüde uyarı görünür.
+- **IPA okunuş ✔** — Wiktionary'den çekilen okunuş kart başlığında gösterilir.
+- **Kelimelerim'de arama ✔** — Liste üstünden kayıtlı kelimeler süzülür.
+- **Tekrar kartında mikrofon ✔** — Flashcard ön yüzünden telaffuz pratiği
+  başlatılır (kayıtlı kelimeyi söyleyip puan alma).
+- Kart sağ üstünde kapat düğmesi; renk sabitleri tek tema dosyasında toplandı
+  (`Theme.swift`).
+
+---
+
 ## 🗺️ Yol haritası
 
 ### Now — sıradaki
 - **P5 · Günün kelimesi [S/M]** — Günlük kart/bildirim ile alışkanlık.
-- **P9 · Özelleştirilebilir kısayol [S]** — ⌘⇧D bazı uygulamalarla çakışıyor; kullanıcı değiştirebilsin.
+- **P9 · Özelleştirilebilir kısayol [S]** — *(1.5'te eklendi ✔)*
 - **P10 · Örnek cümle seslendirme [S]** — *(1.0'da eklendi ✔)* her örneğin yanında 🔊.
 
 ### Later — sonra (daha büyük)

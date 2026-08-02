@@ -20,22 +20,35 @@ final class PopoverController {
     // dinleyip bekleyen aramayı iptal eder — kapatılan kartın yerine sonradan
     // sonuç kartı fırlamaz.
     var onUserDismiss: (() -> Void)?
+    // Kart içi gezinme: tıklanan kelime AppDelegate'e iletilir (yeni arama başlatılır).
+    var onNavigate: ((String) -> Void)?
+    // Geri oku: AppDelegate'in kart belleğinde bir önceki karta döner.
+    var onBack: (() -> Void)?
 
     // Yükleme kartı → sonuç kartı geçişinde kart aynı noktada kalsın diye
     // son panelin sol-üst köşesini hatırlarız.
     private var storedAnchor: NSPoint?
 
+    // Görünen son kart (geri dönüş belleği için AppDelegate okur).
+    private(set) var currentEntry: WordEntry?
+
     init(speaker: Speaker) {
         self.speaker = speaker
     }
 
-    func show(entry: WordEntry, at screenPoint: NSPoint? = nil) {
+    func show(entry: WordEntry, at screenPoint: NSPoint? = nil, canGoBack: Bool = false) {
         // Yükleme kartının yerine geçiyorsak aynı noktada aç (anlık takas, titreme yok).
         let replacing = panel != nil
         let anchor = screenPoint ?? storedAnchor ?? NSEvent.mouseLocation
         close()
 
-        let root = WordCardView(entry: entry, speaker: speaker)
+        let root = WordCardView(
+            entry: entry,
+            speaker: speaker,
+            onNavigate: { [weak self] word in self?.onNavigate?(word) },
+            onBack: canGoBack ? { [weak self] in self?.onBack?() } : nil,
+            onClose: { [weak self] in self?.dismissByUser() }
+        )
         let hosting = NSHostingView(rootView: root)
         hosting.layout()
         var size = hosting.fittingSize
@@ -66,6 +79,7 @@ final class PopoverController {
         panel.setFrameOrigin(clamp(NSPoint(x: anchor.x, y: anchor.y - size.height), size: size))
         panel.orderFrontRegardless()
         self.panel = panel
+        self.currentEntry = entry
         storedAnchor = anchor
 
         if !replacing { fadeIn(panel) }

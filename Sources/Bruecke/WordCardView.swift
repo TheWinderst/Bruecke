@@ -5,24 +5,25 @@ import AppKit
 struct WordCardView: View {
     let entry: WordEntry
     let speaker: Speaker
+    // Kartın içinden başka bir kelimeye atlamak için (diğer anlamlar, eş anlamlılar,
+    // alternatif karşılıklar tıklanabilir). Geri oku AppDelegate'in kart belleğiyle çalışır.
+    var onNavigate: ((String) -> Void)? = nil
+    var onBack: (() -> Void)? = nil
+    var onClose: (() -> Void)? = nil
 
     @StateObject private var coach = PronunciationCoach()
     @ObservedObject private var saved = SavedStore.shared
     @ObservedObject private var settings = AppSettings.shared
     @State private var copied = false
 
-    private let cBlue = Color(red: 10/255, green: 132/255, blue: 1)
-    private let cPink = Color(red: 255/255, green: 55/255, blue: 95/255)
-    private let cGreen = Color(red: 40/255, green: 200/255, blue: 100/255)
-    private let cPurple = Color(red: 150/255, green: 95/255, blue: 230/255)
-    private let cTeal = Color(red: 40/255, green: 170/255, blue: 190/255)
+    private var isTurkish: Bool { settings.translationLanguage == .turkish }
 
     var body: some View {
         Group {
             if coach.isActive {
                 // Üst üste bindirme YOK: pratik ekranı kartın yerine geçer ve kartın
                 // kendi cam yüzeyini kullanır → arkadan kelime sızmaz, her iki modda temiz.
-                PracticeView(coach: coach, target: entry.lemma, accent: cBlue)
+                PracticeView(coach: coach, target: entry.lemma, accent: Theme.blue)
                     .transition(.opacity)
             } else {
                 content
@@ -56,25 +57,42 @@ struct WordCardView: View {
 
             if entry.kind == .verb { verbForms.padding(.top, 12) }
 
+            if entry.isLongText, entry.kind == .phrase {
+                // Uzun metinde kaynak da gösterilsin: çeviriyle karşılaştırılabilsin.
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Almanca").font(.system(size: 12)).foregroundStyle(.secondary)
+                    Text(entry.lemma)
+                        .font(.system(size: 13.5))
+                        .foregroundStyle(.secondary)
+                        .lineSpacing(3)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .textSelection(.enabled)
+                }
+                .padding(12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 10))
+                .padding(.top, 12)
+            }
+
             translationBox.padding(.top, 14)
 
             if let p = entry.pattern { patternBox(p).padding(.top, 12) }
 
             if let gAlts = entry.germanAlternates, !gAlts.isEmpty {
-                detailLine("Başka Almanca karşılıklar", gAlts.joined(separator: " · "))
+                linkedLine("Başka Almanca karşılıklar", gAlts)
             }
-            if settings.showEnglish, let en = entry.english, !en.isEmpty {
+            if settings.showEnglish, isTurkish, let en = entry.english, !en.isEmpty {
                 detailLine("İngilizce", en)
             }
             if settings.showAlternates, let alts = entry.alternates, !alts.isEmpty {
-                detailLine("Diğer anlamlar", alts.joined(separator: " · "))
+                linkedLine(isTurkish ? "Diğer anlamlar" : "Other meanings", alts)
             }
             if settings.showSynonyms, let syn = entry.synonyms, !syn.isEmpty {
-                detailLine("Eş anlamlı (DE)", syn.joined(separator: " · "))
+                linkedLine("Eş anlamlı (DE)", syn)
             }
 
             if !entry.examples.isEmpty {
-                Text("Örnek cümleler").font(.system(size: 12)).foregroundStyle(.secondary).padding(.top, 16)
+                Text(isTurkish ? "Örnek cümleler" : "Examples").font(.system(size: 12)).foregroundStyle(.secondary).padding(.top, 16)
                 VStack(spacing: 8) {
                     ForEach(entry.examples, id: \.self) { exampleRow($0) }
                 }
@@ -88,6 +106,18 @@ struct WordCardView: View {
 
     private var header: some View {
         HStack(alignment: .firstTextBaseline, spacing: 10) {
+            if let onBack {
+                Button(action: onBack) {
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 28, height: 28)
+                        .background(.quaternary, in: Circle())
+                        .contentShape(Circle())
+                }
+                .buttonStyle(.plain)
+                .help("Önceki karta dön")
+            }
             if let tag {
                 Text(tag.text)
                     .font(.system(size: 12, weight: .semibold))
@@ -95,11 +125,28 @@ struct WordCardView: View {
                     .padding(.horizontal, 9).padding(.vertical, 3)
                     .background(tag.color.opacity(0.18), in: RoundedRectangle(cornerRadius: 6))
             }
-            headwordText
-                .font(.system(size: headwordSize, weight: .semibold))
-                .fixedSize(horizontal: false, vertical: true)
+            if !entry.isLongText {
+                headwordText
+                    .font(.system(size: headwordSize, weight: .semibold))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
             Spacer(minLength: 8)
+            if let ipa = entry.ipa {
+                Text(ipa).font(.system(size: 13)).foregroundStyle(.tertiary)
+            }
             speakerButton
+            if let onClose {
+                Button(action: onClose) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(.tertiary)
+                        .frame(width: 22, height: 22)
+                        .background(.quaternary, in: Circle())
+                        .contentShape(Circle())
+                }
+                .buttonStyle(.plain)
+                .help("Kapat")
+            }
         }
     }
 
@@ -153,10 +200,21 @@ struct WordCardView: View {
 
     private var translationBox: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text("Türkçe").font(.system(size: 12)).foregroundStyle(.secondary)
-            Text(entry.translation)
-                .font(.system(size: 22, weight: .semibold)).foregroundStyle(.primary)
-                .fixedSize(horizontal: false, vertical: true)
+            Text(isTurkish ? "Türkçe" : "English").font(.system(size: 12)).foregroundStyle(.secondary)
+            if entry.isLongText {
+                // Uzun metin: vurgulu büyük punto yerine okunabilir gövde yazısı;
+                // paragraf başına değil tamamına odaklanılır.
+                Text(entry.translation)
+                    .font(.system(size: 15))
+                    .foregroundStyle(.primary)
+                    .lineSpacing(4)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .textSelection(.enabled)
+            } else {
+                Text(entry.translation)
+                    .font(.system(size: 22, weight: .semibold)).foregroundStyle(.primary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
             if let err = entry.errorMessage {
                 Label(err, systemImage: "wifi.exclamationmark")
                     .font(.system(size: 12)).foregroundStyle(.secondary)
@@ -172,7 +230,7 @@ struct WordCardView: View {
     // "edat + hâl" ve Türkçe karşılığı, altında ince ayraçla ipucu.
     // Akkusativ mavi, Dativ pembe ile renklenir.
     private func patternBox(_ p: VerbPattern) -> some View {
-        let c = p.kasus == .akkusativ ? cBlue : cPink
+        let c = p.kasus == .akkusativ ? Theme.blue : Theme.pink
         return VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 12) {
                 Text(p.kasus.short)
@@ -214,6 +272,29 @@ struct WordCardView: View {
             .padding(.top, 6)
     }
 
+    // Etiket + tıklanabilir kelime hapları: her biri kendi kartını açar, böylece
+    // anlam zincirinde gezinmek için karta dokunmadan dolaşılabilir.
+    private func linkedLine(_ label: String, _ words: [String]) -> some View {
+        VStack(alignment: .leading, spacing: 5) {
+            Text(label).font(.system(size: 12)).foregroundStyle(.tertiary)
+            FlowLayout(spacing: 6) {
+                ForEach(words, id: \.self) { w in
+                    Button { onNavigate?(w) } label: {
+                        Text(w)
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundStyle(Theme.blue)
+                            .padding(.horizontal, 8).padding(.vertical, 3)
+                            .background(Theme.blue.opacity(0.10), in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .help("“\(w)” kartını aç")
+                    .disabled(onNavigate == nil)
+                }
+            }
+        }
+        .padding(.top, 8)
+    }
+
     private func exampleRow(_ example: Example) -> some View {
         HStack(alignment: .top, spacing: 8) {
             VStack(alignment: .leading, spacing: 3) {
@@ -233,17 +314,20 @@ struct WordCardView: View {
 
     private var footer: some View {
         HStack(spacing: 12) {
-            // Belirgin, opak birincil düğme (cam stili her iki modda da silik kalıyordu).
-            Button { coach.start(target: entry.lemma) } label: {
-                Label("Telaffuzu dene", systemImage: "mic")
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 16).padding(.vertical, 9)
-                    .background(cBlue, in: Capsule())
-                    .contentShape(Capsule())
+            // Uzun metinlerde mikrofon pratiği anlamsız (cümle değil, paragraf hedeflenir).
+            if !entry.isLongText {
+                // Belirgin, opak birincil düğme (cam stili her iki modda da silik kalıyordu).
+                Button { coach.start(target: entry.lemma) } label: {
+                    Label("Telaffuzu dene", systemImage: "mic")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 16).padding(.vertical, 9)
+                        .background(Theme.blue, in: Capsule())
+                        .contentShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                .help("Telaffuzunu söyleyip puan al")
             }
-            .buttonStyle(.plain)
-            .help("Telaffuzunu söyleyip puan al")
 
             Spacer(minLength: 0)
 
@@ -272,6 +356,7 @@ struct WordCardView: View {
     }
 
     private var headwordSize: CGFloat {
+        if entry.isLongText { return 16 }
         if entry.pattern != nil { return 22 }
         return entry.kind == .phrase ? 18 : 29
     }
@@ -282,31 +367,12 @@ struct WordCardView: View {
         guard let p = entry.pattern, entry.lemma.hasSuffix(" \(p.preposition)") else {
             return Text(entry.lemma).foregroundStyle(.primary)
         }
-        let c = p.kasus == .akkusativ ? cBlue : cPink
+        let c = p.kasus == .akkusativ ? Theme.blue : Theme.pink
         let stem = String(entry.lemma.dropLast(p.preposition.count))
         return Text(stem).foregroundStyle(.primary) + Text(p.preposition).foregroundStyle(c).fontWeight(.bold)
     }
 
-    private var tag: (text: String, color: Color)? {
-        switch entry.kind {
-        case .noun:
-            if entry.gender == .none { return ("isim", cBlue) }
-            return (entry.gender.rawValue, genderColor)
-        case .verb: return ("fiil", cPurple)
-        case .adjective: return ("sıfat", cTeal)
-        case .phrase: return ("cümle", .secondary)
-        case .other: return entry.posLabel.isEmpty ? nil : (entry.posLabel, .secondary)
-        }
-    }
-
-    private var genderColor: Color {
-        switch entry.gender {
-        case .der: return cBlue
-        case .die: return cPink
-        case .das: return cGreen
-        case .none: return cBlue
-        }
-    }
+    private var tag: (text: String, color: Color)? { Theme.tag(for: entry) }
 
     private var metaLine: String {
         var parts: [String] = []
@@ -339,6 +405,38 @@ struct GlassBtn: ViewModifier {
     @ViewBuilder func body(content: Content) -> some View {
         if #available(macOS 26.0, *) { content.buttonStyle(.glass) }
         else { content.buttonStyle(.bordered) }
+    }
+}
+
+// MARK: - Akıcı düzen (tıklanabilir kelime hapları satırlara bölünür)
+
+// SwiftUI'nin yatay HStack'i tek satırda taşır; bu küçük düzen, hapları satır
+// dolunca alta kaydırır (diğer anlamlar / eş anlamlılar listesi için).
+struct FlowLayout: Layout {
+    var spacing: CGFloat = 6
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let width = proposal.width ?? 0
+        var x: CGFloat = 0, y: CGFloat = 0, rowH: CGFloat = 0, maxW: CGFloat = 0
+        for v in subviews {
+            let s = v.sizeThatFits(.unspecified)
+            if x > 0, x + s.width > width { x = 0; y += rowH + spacing; rowH = 0 }
+            x += s.width + spacing
+            rowH = max(rowH, s.height)
+            maxW = max(maxW, x - spacing)
+        }
+        return CGSize(width: max(maxW, min(width, maxW)), height: y + rowH)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        var x = bounds.minX, y = bounds.minY, rowH: CGFloat = 0
+        for v in subviews {
+            let s = v.sizeThatFits(.unspecified)
+            if x > bounds.minX, x + s.width > bounds.maxX { x = bounds.minX; y += rowH + spacing; rowH = 0 }
+            v.place(at: CGPoint(x: x, y: y), proposal: ProposedViewSize(s))
+            x += s.width + spacing
+            rowH = max(rowH, s.height)
+        }
     }
 }
 
@@ -454,8 +552,8 @@ struct ResultContent: View {
     @State private var progress: CGFloat = 0
 
     private var color: Color {
-        if score >= 60 { return Color(red: 40/255, green: 200/255, blue: 100/255) }
-        if score >= 40 { return Color(red: 235/255, green: 160/255, blue: 30/255) }
+        if score >= 60 { return Theme.green }
+        if score >= 40 { return Theme.orange }
         return Color(red: 235/255, green: 80/255, blue: 80/255)
     }
     private var message: String {

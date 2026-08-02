@@ -13,15 +13,19 @@ struct FlashcardView: View {
     @State private var flipped = false
     @State private var knownCount = 0
     @State private var againCount = 0
+    // Telaffuz antrenörü kart içinden de çalıştırılabilir (kayıtlı kelimeyi söyleyip puan alma).
+    @StateObject private var coach = PronunciationCoach()
 
     private var total: Int { knownCount + deck.count }
-    private let cGreen = Color(red: 40/255, green: 200/255, blue: 100/255)
-    private let cOrange = Color(red: 235/255, green: 160/255, blue: 30/255)
 
     var body: some View {
         Group {
             if entries.isEmpty {
                 emptyBody
+            } else if coach.isActive, let current = deck.first {
+                // Telaffuz pratiği kartın yerine geçer (WordCardView ile aynı teknik).
+                PracticeView(coach: coach, target: current.lemma, accent: Theme.blue)
+                    .padding(16)
             } else if let current = deck.first {
                 practiceBody(current)
             } else {
@@ -30,6 +34,7 @@ struct FlashcardView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .onAppear(perform: startRound)
+        .onDisappear { coach.reset() }
     }
 
     private func startRound() {
@@ -50,13 +55,13 @@ struct FlashcardView: View {
                 Spacer()
                 if againCount > 0 {
                     Text("tekrar: \(againCount)")
-                        .font(.system(size: 11)).foregroundStyle(cOrange)
+                        .font(.system(size: 11)).foregroundStyle(Theme.orange)
                 }
             }
 
             ProgressView(value: Double(knownCount), total: Double(max(total, 1)))
                 .progressViewStyle(.linear)
-                .tint(cGreen)
+                .tint(Theme.green)
 
             Spacer(minLength: 4)
 
@@ -75,7 +80,7 @@ struct FlashcardView: View {
                     }
                     .controlSize(.large)
                     .modifier(GlassBtn())
-                    .tint(cOrange)
+                    .tint(Theme.orange)
 
                     Button {
                         withAnimation(.easeInOut(duration: 0.2)) { markKnown() }
@@ -86,7 +91,7 @@ struct FlashcardView: View {
                     }
                     .controlSize(.large)
                     .modifier(GlassProminentBtn())
-                    .tint(cGreen)
+                    .tint(Theme.green)
                     .keyboardShortcut(.return, modifiers: [])
                 }
             } else {
@@ -134,14 +139,24 @@ struct FlashcardView: View {
                     .font(.system(size: 26, weight: .semibold))
                     .multilineTextAlignment(.center)
                     .minimumScaleFactor(0.6)
-                Button {
-                    speaker.speak(entry.displayHeadword)
-                } label: {
-                    Image(systemName: "speaker.wave.2")
-                        .font(.system(size: 14)).foregroundStyle(.secondary)
-                        .frame(width: 30, height: 30).contentShape(Circle())
+                HStack(spacing: 14) {
+                    Button {
+                        speaker.speak(entry.displayHeadword)
+                    } label: {
+                        Image(systemName: "speaker.wave.2")
+                            .font(.system(size: 14)).foregroundStyle(.secondary)
+                            .frame(width: 30, height: 30).contentShape(Circle())
+                    }
+                    .buttonStyle(.plain).help("Seslendir")
+                    Button {
+                        coach.start(target: entry.lemma)
+                    } label: {
+                        Image(systemName: "mic")
+                            .font(.system(size: 13)).foregroundStyle(Theme.blue)
+                            .frame(width: 30, height: 30).contentShape(Circle())
+                    }
+                    .buttonStyle(.plain).help("Telaffuzu dene — söyle ve puan al")
                 }
-                .buttonStyle(.plain).help("Seslendir")
                 Text("çevirmek için tıkla")
                     .font(.system(size: 11)).foregroundStyle(.tertiary)
             } else {
@@ -213,7 +228,7 @@ struct FlashcardView: View {
     private var summaryBody: some View {
         VStack(spacing: 12) {
             Image(systemName: "checkmark.seal.fill")
-                .font(.system(size: 40)).foregroundStyle(cGreen)
+                .font(.system(size: 40)).foregroundStyle(Theme.green)
             Text("Tur bitti!").font(.system(size: 17, weight: .semibold))
             Text(againCount == 0
                  ? "\(knownCount) kelimenin hepsini ilk seferde bildin."
@@ -241,24 +256,11 @@ struct FlashcardView: View {
     }
 
     private func tag(_ entry: WordEntry) -> (text: String, color: Color)? {
-        let cBlue = Color(red: 10/255, green: 132/255, blue: 1)
-        let cPink = Color(red: 255/255, green: 55/255, blue: 95/255)
-        let cGreenTag = Color(red: 40/255, green: 200/255, blue: 100/255)
-        let cPurple = Color(red: 150/255, green: 95/255, blue: 230/255)
-        let cTeal = Color(red: 40/255, green: 170/255, blue: 190/255)
-        switch entry.kind {
-        case .noun:
-            // Artikel zaten başlıkta ("der Apfel") — rozet türü söyler, rengi artikelden alır.
-            switch entry.gender {
-            case .der: return ("isim", cBlue)
-            case .die: return ("isim", cPink)
-            case .das: return ("isim", cGreenTag)
-            case .none: return ("isim", cBlue)
-            }
-        case .verb: return ("fiil", cPurple)
-        case .adjective: return ("sıfat", cTeal)
-        case .phrase: return ("cümle", .secondary)
-        case .other: return entry.posLabel.isEmpty ? nil : (entry.posLabel, .secondary)
+        // Rozet metni "isim" olarak sabitlenir (artikel zaten başlıkta "der Apfel"
+        // yazar); renk Theme üzerinden artikelden gelir.
+        if entry.kind == .noun {
+            return ("isim", Theme.genderColor(entry.gender))
         }
+        return Theme.tag(for: entry)
     }
 }

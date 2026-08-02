@@ -11,40 +11,49 @@ struct DictionarySearchView: View {
     @State private var loading = false
     // Arama yönü; son seçim hatırlanır. Yazıda Türkçe/Almanca harf ipucu varsa
     // DictionaryService yönü kendisi düzeltir, düğme yanlış kalsa bile sonuç doğrudur.
+    // Çeviri dili English ise TR yönü kapalıdır, tek yön DE→EN kalır.
     @State private var reversed = AppSettings.shared.searchReversed
     @FocusState private var focused: Bool
+
+    private var isTurkish: Bool { AppSettings.shared.translationLanguage == .turkish }
 
     // Panel boyutu açılışta bir kez ölçülür; liste o yüzden açılış anındaki
     // geçmişle sabitlenir (panel ömrü boyunca değişmez, yerleşim kaymaz).
     private let recents: [WordEntry] = AppSettings.shared.keepHistory
         ? HistoryStore.shared.recent(5) : []
 
-    private let cBlue = Color(red: 10/255, green: 132/255, blue: 1)
-
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 9) {
                 Image(systemName: "character.book.closed")
-                    .font(.system(size: 15, weight: .semibold)).foregroundStyle(cBlue)
+                    .font(.system(size: 15, weight: .semibold)).foregroundStyle(Theme.blue)
                 Text("Kelime çevir").font(.system(size: 15, weight: .semibold)).foregroundStyle(.primary)
                 Spacer(minLength: 0)
-                Picker("Yön", selection: $reversed) {
-                    Text("DE → TR").tag(false)
-                    Text("TR → DE").tag(true)
+                if isTurkish {
+                    Picker("Yön", selection: $reversed) {
+                        Text("DE → TR").tag(false)
+                        Text("TR → DE").tag(true)
+                    }
+                    .pickerStyle(.segmented)
+                    .controlSize(.small)
+                    .fixedSize()
+                    .labelsHidden()
+                    .disabled(loading)
+                    .onChange(of: reversed) { _, v in AppSettings.shared.searchReversed = v }
                 }
-                .pickerStyle(.segmented)
-                .controlSize(.small)
-                .fixedSize()
-                .labelsHidden()
-                .disabled(loading)
-                .onChange(of: reversed) { _, v in AppSettings.shared.searchReversed = v }
             }
 
             HStack(spacing: 8) {
                 Image(systemName: "magnifyingglass").font(.system(size: 14)).foregroundStyle(.secondary)
-                TextField(reversed ? "Türkçe kelime…" : "Almanca kelime ya da cümle…", text: $text)
+                TextField(
+                    isTurkish
+                        ? (reversed ? "Türkçe kelime…" : "Almanca kelime ya da cümle…")
+                        : "German word or text…",
+                    text: $text, axis: .vertical
+                )
                     .textFieldStyle(.plain)
                     .font(.system(size: 17))
+                    .lineLimit(1...5)
                     .focused($focused)
                     .disabled(loading)
                     .onSubmit(submit)
@@ -69,7 +78,7 @@ struct DictionarySearchView: View {
                             guard !loading else { return }
                             loading = true
                             // Geçmişteki kelime her zaman Almanca lemma ile durur.
-                            onSubmit(entry.lemma, .deToTr)
+                            onSubmit(entry.lemma, isTurkish && entry.reverseQuery != nil ? .trToDe : .deToTr)
                         } label: {
                             HStack(spacing: 8) {
                                 Image(systemName: "clock.arrow.circlepath")
@@ -91,20 +100,20 @@ struct DictionarySearchView: View {
             }
 
             HStack(spacing: 8) {
-                Text("Enter ile çevir · Esc ile kapat").font(.system(size: 11)).foregroundStyle(.tertiary)
+                Text("Enter ile çevir · Esc ile kapat · uzun metni yapıştır").font(.system(size: 11)).foregroundStyle(.tertiary)
                 Spacer(minLength: 0)
                 Button(action: submit) {
                     Text(loading ? "Çeviriliyor…" : "Çevir")
                         .font(.system(size: 13, weight: .semibold)).foregroundStyle(.white)
                         .padding(.horizontal, 14).padding(.vertical, 7)
-                        .background(canSubmit ? cBlue : Color.secondary.opacity(0.4), in: Capsule())
+                        .background(canSubmit ? Theme.blue : Color.secondary.opacity(0.4), in: Capsule())
                         .contentShape(Capsule())
                 }
                 .buttonStyle(.plain).disabled(!canSubmit)
             }
         }
         .padding(16)
-        .frame(width: 340, alignment: .leading)
+        .frame(width: 360, alignment: .leading)
         .modifier(GlassCardBG())
         // Panel anahtar olduğunda alanı otomatik odakla (asyncAfter: hosting yerleşsin).
         .onAppear { DispatchQueue.main.async { focused = true } }
@@ -118,7 +127,7 @@ struct DictionarySearchView: View {
         let term = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !term.isEmpty, !loading else { return }
         loading = true          // sonuç kartı gelene kadar dönen gösterge
-        onSubmit(term, reversed ? .trToDe : .deToTr)
+        onSubmit(term, isTurkish && reversed ? .trToDe : .deToTr)
     }
 }
 
